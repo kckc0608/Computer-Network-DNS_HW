@@ -1,3 +1,15 @@
+"""
+가상의 회사 dreamnet.com의 머신 swdpt0.dreamnet.com에서 실행되는 응용 프로그램을 클라이언트
+프로세스라 하며, 이 클라이언트가 네임 resolution을 위한 query를 최초로 발생시키는 역할을 한다.
+클라이언트 프로세스는 실행 후 config.txt 파일(접근 가능 지정된 위치 저장)에 저장된 local DNS 서버의
+<네임, IP 주소> 및 port 번호를 읽어오고, 읽은 port 번호로 UDP segment를 보냄으로 local DNS 서
+버에 query를 전달한다. Query 생성 및 resolution 과정은 클라이언트가 사용자의 키보드 입력을 통해
+ipaddr <name> 명령어를 입력받고 이를 query로 만들어 local DNS 서버에 보냄으로써 시작된다.
+Local DNS 서버는 이 query의 reply를 얻기까지 필요한 모든 절차를 클라이언트 대신 진행한 후, reply
+및 이를 얻기 위해 접근한 서버(들) 정보를 클라이언트에게 제공한다.
+"""
+
+
 import socket, sys
 from re import findall
 
