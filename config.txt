@@ -1,0 +1,7 @@
+local_dns_server = [dns.dreamnet.com, 127.0.0.1] 23002
+root_dns_server = [dns.dreamnet.com, 100.100.100.99] 23002
+comTLD_dns_server = [dns.dreamnet.com, 100.100.100.99] 23002
+# 특정 회사들
+abcdef_dns_server = [dns.abcdef.com, 77.88.99.11] 10001
+xyz_dns_server = [dns.dreamnet.com, 100.100.100.99] 23002
+ahobho_dns_server = [dns.dreamnet.com, 100.100.100.99] 23002
