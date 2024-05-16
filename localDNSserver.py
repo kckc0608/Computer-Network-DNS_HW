@@ -43,6 +43,8 @@ def get_dns_info(raw_data):
         port_info = int(port_info[0][2:])
 
         dns_info[server_name.strip()] = (host_info, port_info)
+    print("root DNS 서버의 정보를 가져왔습니다.")
+    print(dns_info)
 
 
 def get_cache_info(cache_info, raw_data):
@@ -73,69 +75,110 @@ def process_query():
             "RED": "\033[91m",
             "ENDC": "\033[0m",
         }
-        print(f"\u001B[s\u001B[A\u001B[999D\u001B[S\u001B[L", end="", flush=True)
+        #  print(f"\u001B[s\u001B[A\u001B[999D\u001B[S\u001B[L", end="", flush=True)
+        print(f"\u001B[999D\u001B[K",end="", flush=True)
         print(COLOR["GREEN"], "[info] ", COLOR["ENDC"], end='', flush=True)
-        print(f"{_data}\u001B[u", end='', flush=True)
+        #  print(f"{_data}\u001B[u", end='', flush=True)
+        print(f"{_data}\n", end='', flush=True)
+        print(">> ", end='', flush=True)
+
 
     with socket.socket(type=socket.SOCK_DGRAM) as local_dns_socket:
         local_dns_socket.bind((host, port))
 
         while True:
             data, addr = local_dns_socket.recvfrom(1024)
-            data = data.decode()
-            print_data(data)
 
-            cache_info = dict()
-            with open('local_dns_cache.txt', encoding="utf-8") as f:
-                cache_data = f.read()
-                get_cache_info(cache_info, cache_data)
-                print_data(cache_info)
+            if addr[1] == root_dns_port:
+                reply = data.decode()
 
-                if data in cache_info:
-                    # iterate 방식
-                    if 'A' in cache_info[data]:
-                        local_dns_socket.sendto((cache_info[data]['A'] + " from server").encode(), addr)
-                    elif 'CNAME' in cache_info[data]:
-                        local_dns_socket.sendto((cache_info[data]['CNAME'] + " from server").encode(), addr)
+                local_dns_socket.sendto((reply+" and from local dns server").encode(), (host, client_port))
+
+            else:
+                client_port = addr[1]
+
+                print_data(addr)
+                data = data.decode()
+                print_data(data)
+
+                cache_info = dict()
+                with open('local_dns_cache.txt', encoding="utf-8") as f:
+                    cache_data = f.read()
+                    get_cache_info(cache_info, cache_data)
+                    #print_data(cache_info)
+
+                    if data in cache_info:
+                        # iterate 방식
+                        if 'A' in cache_info[data]:
+                            local_dns_socket.sendto((cache_info[data]['A'] + " from server").encode(), addr)
+                        elif 'CNAME' in cache_info[data]:
+                            local_dns_socket.sendto((cache_info[data]['CNAME'] + " from server").encode(), addr)
+                        else:
+                            # 이상한 타입이 들어있다는 의미
+                            pass
                     else:
-                        # 이상한 타입이 들어있다는 의미
-                        pass
-                else:
-                    # recursive 든, iterator 든 알아내서 반환하기
-                    # 일단은 그냥 반환
-                    # 일단 그냥 에코 반환
-                    local_dns_socket.sendto((data+" from server").encode(), addr)
+                        # Local DNS Server 는 항상 recursive 처리를 요청한다.
+                        print_data(f"{data} 도메인 정보가 캐시에 없습니다. 쿼리를 보냅니다.")
+                        # 1. name 에서 각 단위를 잘라내기
+                        tokens = data.split('.')
+                        # 2. www.xyz.com 이면
+                        """
+                        1. xyz.com dns server 정보가 캐시에 있는지 확인
+                        2. .com dns sever 정보가 캐시에 있는지 확인
+                        3. root server에 쿼리 전송
+                        """
+                        # 3. 모두 캐싱되어 있지 않아서 root 서버에 전송
+                        query_for_root = data + " from server"
+                        local_dns_socket.sendto(query_for_root.encode(), (host, root_dns_port))
+
+                        # recursive 든, iterator 든 알아내서 반환하기
+                        # 일단 그냥 에코 반환
+                        local_dns_socket.sendto((data+" from server").encode(), addr)
 
 
-host = '127.0.0.1'
-if len(sys.argv) < 2:
-    print("포트 정보가 필요합니다.")
-    exit()
-elif len(sys.argv) > 2:
-    print("인자가 너무 많습니다.")
-    exit()
+try:
+    host = '127.0.0.1'
+    client_port = None
+    if len(sys.argv) < 2:
+        print("포트 정보가 필요합니다.")
+        exit()
+    elif len(sys.argv) > 2:
+        print("인자가 너무 많습니다.")
+        exit()
 
-if not sys.argv[1].isnumeric():
-    print("포트 번호는 숫자입니다.")
-    exit()
+    if not sys.argv[1].isnumeric():
+        print("포트 번호는 숫자입니다.")
+        exit()
 
-port = int(sys.argv[1])
-# 포트 번호 범위 체크 필요?
-dns_info = dict()
+    port = int(sys.argv[1])
+    # 포트 번호 범위 체크 필요?
+    dns_info = dict()
 
-with open('config.txt', encoding="utf-8") as f:
-    read_data = f.read()
-    get_dns_info(read_data)
-    print(dns_info)
+    # root DNS 서버의 정보 가져오기 (TODO : 지금은 모든 정보를 다 가져옴)
+    with open('config.txt', encoding="utf-8") as f:
+        read_data = f.read()
+        get_dns_info(read_data)
 
-input_thread = threading.Thread(target=process_query)
-input_thread.daemon = True
-input_thread.start()
+    if 'root_dns_server' not in dns_info:
+        raise Exception("root dns server 정보가 없습니다.")
+    root_dns_host, root_dns_port = dns_info.get('root_dns_server')
 
-while True:
-    cmd = input(">> ")
-    print(cmd)
+    input_thread = threading.Thread(target=process_query)
+    input_thread.daemon = True
+    input_thread.start()
 
-    if cmd == "exit":
-        exit(0)
+    while True:
+        cmd = input(">> ").strip()
 
+        if cmd == "exit":
+            exit(0)
+        elif cmd == "cache":
+            # print cache (TODO)
+            pass
+        else:
+            print("존재하지 않는 명령어 입니다.")
+
+
+except Exception as ex:
+    print("예상치 못한 오류가 발생했습니다.")
+    print(ex)

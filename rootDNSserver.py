@@ -59,9 +59,12 @@ def process_query():
             "RED": "\033[91m",
             "ENDC": "\033[0m",
         }
-        print(f"\u001B[s\u001B[A\u001B[999D\u001B[S\u001B[L", end="", flush=True)
+        #  print(f"\u001B[s\u001B[A\u001B[999D\u001B[S\u001B[L", end="", flush=True)
+        print(f"\u001B[999D\u001B[K",end="", flush=True)
         print(COLOR["GREEN"], "[info] ", COLOR["ENDC"], end='', flush=True)
-        print(f"{_data}\u001B[u", end='', flush=True)
+        #  print(f"{_data}\u001B[u", end='', flush=True)
+        print(f"{_data}\n", end='', flush=True)
+        print(">> ", end='', flush=True)
 
     with socket.socket(type=socket.SOCK_DGRAM) as local_dns_socket:
         local_dns_socket.bind((host, port))
@@ -90,7 +93,7 @@ def process_query():
                     # recursive 든, iterator 든 알아내서 반환하기
                     # 일단은 그냥 반환
                     # 일단 그냥 에코 반환
-                    local_dns_socket.sendto((data+" from server").encode(), addr)
+                    local_dns_socket.sendto((data+" from root dns server").encode(), addr)
 
 
 host = '127.0.0.1'
