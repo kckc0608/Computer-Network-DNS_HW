@@ -60,7 +60,7 @@ try:
     with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
         client_socket.bind((host, port))
         while True:
-            cmd = input(">> ").split()
+            cmd = list(map(lambda x: x.strip(), input(">> ").split()))
             if len(cmd) == 2:
                 if cmd[0] == 'ipaddr':
                     query_host = cmd[1]
@@ -72,10 +72,12 @@ try:
                 else:
                     print("존재하지 않는 명령어입니다.")
             else:
-                if cmd[0] == 'ipaddr':
+                if cmd[0] == 'ipaddr':  # 쿼리 발생
                     print("명령어의 형식이 잘못되었습니다.")
                 else:
                     print("존재하지 않는 명령어입니다.")
-except:
+
+except Exception as ex:
     print("예상치 못한 에러가 발생했습니다.")
+    print(ex)
     exit()
