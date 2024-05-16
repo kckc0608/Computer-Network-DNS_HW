@@ -169,6 +169,8 @@ try:
 
     while True:
         cmd = input(">> ").strip()
+        if not cmd:
+            continue
 
         if cmd == "exit":
             exit(0)

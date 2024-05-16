@@ -56,10 +56,10 @@ except:
     print("config.txt 파일에서 데이터를 가져오는 중 오류가 발생했습니다.")
     exit()
 
-try:
-    with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
-        client_socket.bind((host, port))
-        while True:
+with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
+    client_socket.bind((host, port))
+    while True:
+        try:
             cmd = list(map(lambda x: x.strip(), input(">> ").split()))
             if len(cmd) == 2:
                 if cmd[0] == 'ipaddr':
@@ -72,11 +72,14 @@ try:
                 else:
                     print("존재하지 않는 명령어입니다.")
             else:
+                if not cmd:
+                    continue
+
                 if cmd[0] == 'ipaddr':  # 쿼리 발생
                     print("명령어의 형식이 잘못되었습니다.")
                 else:
                     print("존재하지 않는 명령어입니다.")
 
-except Exception as ex:
-    print("예상치 못한 에러가 발생했습니다.")
-    print(ex)
+        except Exception as ex:
+            print("예상치 못한 오류가 발생했습니다.")
+            print(ex)

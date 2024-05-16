@@ -125,6 +125,8 @@ recursive_flag = False
 while True:
     try:
         cmd = tuple(map(lambda x: x.strip(), input(">> ").strip().split()))
+        if not cmd:
+            continue
 
         if cmd[0] == "exit":
             exit(0)
