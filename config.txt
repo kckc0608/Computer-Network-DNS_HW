@@ -3,5 +3,5 @@ root_dns_server = [dns.root.com, 100.100.100.99] 23003
 comTLD_dns_server = [dns.tld.com, 100.100.100.100] 23004
 # 특정 회사들
 abcdef_dns_server = [dns.abcdef.com, 77.88.99.11] 10001
-xyz_dns_server = [dns.dreamnet.com, 100.100.100.99] 23002
-ahobho_dns_server = [dns.dreamnet.com, 100.100.100.99] 23002
+xyz_dns_server = [dns.dreamnet.com, 100.100.100.99] 10002
+ahobho_dns_server = [dns.dreamnet.com, 100.100.100.99] 10003
