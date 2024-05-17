@@ -69,12 +69,30 @@ def process_query():
         print(f"{_data}\n", end='', flush=True)
         print(">> ", end='', flush=True)
 
+    def find_question_in_cache(question):
+        with open('local_dns_cache.txt', encoding="utf-8") as cache_file:
+            cache_info = dict()
+            cache_data = cache_file.read()
+            get_cache_info(cache_info, cache_data)
+            print_data(cache_info)
+
+            if question in cache_info:
+                # iterate 방식
+                if 'A' in cache_info[question]:
+                    return cache_info[question]['A']
+                elif 'CNAME' in cache_info[question]:
+                    return cache_info[question]['CNAME']
+                else:
+                    # 이상한 타입이 들어있다는 의미
+                    pass
+
+            return None
+
     with socket.socket(type=socket.SOCK_DGRAM) as root_dns_socket:
         root_dns_socket.bind((host, port))
 
         while True:
             recv_data, addr = root_dns_socket.recvfrom(1024)
-            print_data("데이터를 수신했습니다.")
             message_data = json.loads(recv_data.decode())
             message = Message(**message_data)
 
@@ -83,33 +101,37 @@ def process_query():
                 query = message
                 print_data(query)
 
-                cache_info = dict()
-                with open('local_dns_cache.txt', encoding="utf-8") as cache_file:
-                    cache_data = cache_file.read()
-                    get_cache_info(cache_info, cache_data)
-                    print_data(cache_info)
-
-                    if message.questions in cache_info:
-                        # iterate 방식
-                        if 'A' in cache_info[message.questions]:
-                            root_dns_socket.sendto((cache_info[message.questions]['A'] + " from server").encode(), addr)
-                        elif 'CNAME' in cache_info[message.questions]:
-                            root_dns_socket.sendto((cache_info[message.questions]['CNAME'] + " from server").encode(), addr)
-                        else:
-                            # 이상한 타입이 들어있다는 의미
+                cached_answer = find_question_in_cache(message.questions)
+                if cached_answer:
+                    reply_message = Message(
+                        message_id=query.message_id,
+                        query_flag=False,
+                        questions=query.questions,
+                        recursive_flag=False,
+                        answers=tuple(query.answers) + (cached_answer,),
+                        authority=query.authority
+                    )
+                    root_dns_socket.sendto(reply_message.encode(), addr)
+                else:
+                    print_data(f"cache에 {message.questions}이 없습니다.")
+                    if query.recursive_flag:  # recursive 요청 (사실 항상 이쪽으로 들어옴. local dns server는 항상 recursive 요청을 보냄)
+                        if recursive_flag:  # recursive 수락
+                            "recursive 과정으로 IP주소 알아오기"
                             pass
+                        else:
+                            "TLD 정보 보내주고 끝"
+                            reply_message = Message(
+                                message_id=query.message_id,
+                                query_flag=False,
+                                questions=query.questions,
+                                recursive_flag=False,
+                                answers=tuple(query.answers),
+                                authority=tuple(query.authority) + (dns_info.get("comTLD_dns_server"),)
+                            )
+                            root_dns_socket.sendto(reply_message.encode(), addr)
                     else:
-                        # recursive 든, iterator 든 알아내서 반환하기
-                        print_data(f"cache에 {message.questions}이 없습니다.")
+                        "TLD정보 보내주고 끝"
 
-                        reply_message = Message(
-                            message_id=message.message_id,
-                            query_flag=False,
-                            questions=message.questions,
-                            recursive_flag=False,
-                            answers=[f"cache에 {message.questions}이 없습니다."]
-                        )
-                        root_dns_socket.sendto(reply_message.encode(), addr)
 
             else:
                 pass  # root dns가 reply를 받는다는건 recursive 방식밖에 없음

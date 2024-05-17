@@ -84,6 +84,24 @@ def process_query():
         print(f"{_data}\n", end='', flush=True)
         print(">> ", end='', flush=True)
 
+    def find_question_in_cache(question):
+        with open('local_dns_cache.txt', encoding="utf-8") as cache_file:
+            cache_info = dict()
+            cache_data = cache_file.read()
+            get_cache_info(cache_info, cache_data)
+            print_data(cache_info)
+
+            if question in cache_info:
+                # iterate 방식
+                if 'A' in cache_info[question]:
+                    return cache_info[question]['A']
+                elif 'CNAME' in cache_info[question]:
+                    return cache_info[question]['CNAME']
+                else:
+                    # 이상한 타입이 들어있다는 의미
+                    pass
+
+            return None
 
     with socket.socket(type=socket.SOCK_DGRAM) as local_dns_socket:
         local_dns_socket.bind((host, port))
@@ -101,9 +119,16 @@ def process_query():
                 print_data("reply 를 수신했습니다.")
                 if addr[1] == root_dns_port:
                     if recv_message.answers:
+                        print_data("answers 가 들어있는 응답을 받았습니다.")
                         print_data(f"client port : {client_port}")
                         print_data(f"{recv_message}")
                         local_dns_socket.sendto(recv_message.encode(), (host, client_port))
+                    elif recv_message.authority:
+                        print_data("authority 가 들어있는 응답을 받았습니다.")
+                        print_data(recv_message.authority)
+                        # test
+                        local_dns_socket.sendto(recv_message.encode(), (host, client_port))
+                        # test
                     else:
                         print_data("호스트에 대한 IP주소를 찾지 못했습니다.")
 
@@ -111,34 +136,23 @@ def process_query():
             else:
                 print_data("query를 수신했습니다.")
                 client_port = addr[1]
-                # 1. 캐시에서 query에 대한 데이터 찾기
-                # 2. 캐시에서 query에 대해 제일 가까운 dns 서버 찾기
-
-                # 2-1. name 에서 각 단위를 잘라내기
-                # tokens = data.split('.')
-                # 2-2. www.xyz.com 이면
                 """
                 1. xyz.com dns server 정보가 캐시에 있는지 확인
                 2. .com dns sever 정보가 캐시에 있는지 확인
                 3. root server에 쿼리 전송
                 """
 
-                cache_info = dict()
-                with open('local_dns_cache.txt', encoding="utf-8") as f:
-                    cache_data = f.read()
-                    get_cache_info(cache_info, cache_data)
-                    # print_data(cache_info)
-
-                if data in cache_info:
-                    # iterate 방식
-                    if 'A' in cache_info[data]:
-                        local_dns_socket.sendto((cache_info[data]['A'] + " from server").encode(), addr)
-                    elif 'CNAME' in cache_info[data]:
-                        local_dns_socket.sendto((cache_info[data]['CNAME'] + " from server").encode(), addr)
-                    else:
-                        # 이상한 타입이 들어있다는 의미
-                        print_data("정의되지 않은 RR 타입이 들어있습니다.")
-                        pass
+                cached_answer = find_question_in_cache(recv_message.questions)
+                if cached_answer:
+                    reply_message = Message(
+                        message_id=query.message_id,
+                        query_flag=False,
+                        questions=query.questions,
+                        recursive_flag=False,
+                        answers=query.answers + (cached_answer,),
+                        authority=query.authority
+                    )
+                    local_dns_socket.sendto(reply_message.encode(), addr)
 
                 # 3. root dns 서버에 요청 보내기
                 else:
