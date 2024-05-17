@@ -5,12 +5,15 @@ TLD DNS 서버의 <네임, IP 주소> 및 port 번호를 읽어오고, port 번�
 통신한다. root DNS 서버가 recursive 처리를 수락 또는 거부하는 것은 명령어에 주어진 상태 값(flag:
 on 또는 off)으로 결정된다.
 """
-
+import json
 import os
 import socket
 import sys
 import threading
 from re import findall
+
+from message import Message
+
 os.system("")
 
 def get_dns_info(raw_data):
@@ -66,34 +69,50 @@ def process_query():
         print(f"{_data}\n", end='', flush=True)
         print(">> ", end='', flush=True)
 
-    with socket.socket(type=socket.SOCK_DGRAM) as local_dns_socket:
-        local_dns_socket.bind((host, port))
+    with socket.socket(type=socket.SOCK_DGRAM) as root_dns_socket:
+        root_dns_socket.bind((host, port))
 
         while True:
-            data, addr = local_dns_socket.recvfrom(1024)
-            data = data.decode()
-            print_data(data)
+            recv_data, addr = root_dns_socket.recvfrom(1024)
+            print_data("데이터를 수신했습니다.")
+            message_data = json.loads(recv_data.decode())
+            message = Message(**message_data)
 
-            cache_info = dict()
-            with open('local_dns_cache.txt', encoding="utf-8") as f:
-                cache_data = f.read()
-                get_cache_info(cache_info, cache_data)
-                print_data(cache_info)
+            if message.query_flag:
+                print_data("쿼리를 수신했습니다.")
+                query = message
+                print_data(query)
 
-                if data in cache_info:
-                    # iterate 방식
-                    if 'A' in cache_info[data]:
-                        local_dns_socket.sendto((cache_info[data]['A'] + " from server").encode(), addr)
-                    elif 'CNAME' in cache_info[data]:
-                        local_dns_socket.sendto((cache_info[data]['CNAME'] + " from server").encode(), addr)
+                cache_info = dict()
+                with open('local_dns_cache.txt', encoding="utf-8") as cache_file:
+                    cache_data = cache_file.read()
+                    get_cache_info(cache_info, cache_data)
+                    print_data(cache_info)
+
+                    if message.questions in cache_info:
+                        # iterate 방식
+                        if 'A' in cache_info[message.questions]:
+                            root_dns_socket.sendto((cache_info[message.questions]['A'] + " from server").encode(), addr)
+                        elif 'CNAME' in cache_info[message.questions]:
+                            root_dns_socket.sendto((cache_info[message.questions]['CNAME'] + " from server").encode(), addr)
+                        else:
+                            # 이상한 타입이 들어있다는 의미
+                            pass
                     else:
-                        # 이상한 타입이 들어있다는 의미
-                        pass
-                else:
-                    # recursive 든, iterator 든 알아내서 반환하기
-                    # 일단은 그냥 반환
-                    # 일단 그냥 에코 반환
-                    local_dns_socket.sendto((data+" from root dns server").encode(), addr)
+                        # recursive 든, iterator 든 알아내서 반환하기
+                        print_data(f"cache에 {message.questions}이 없습니다.")
+
+                        reply_message = Message(
+                            message_id=message.message_id,
+                            query_flag=False,
+                            questions=message.questions,
+                            recursive_flag=False,
+                            answers=[f"cache에 {message.questions}이 없습니다."]
+                        )
+                        root_dns_socket.sendto(reply_message.encode(), addr)
+
+            else:
+                pass  # root dns가 reply를 받는다는건 recursive 방식밖에 없음
 
 
 host = '127.0.0.1'

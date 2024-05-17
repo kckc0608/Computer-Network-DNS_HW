@@ -10,7 +10,10 @@ Local DNS 서버는 이 query의 reply를 얻기까지 필요한 모든 절차�
 """
 
 
-import socket, sys
+import socket
+import sys
+import json
+from message import Message
 from re import findall
 
 
@@ -32,7 +35,6 @@ def get_dns_info(raw_data):
         dns_info[server_name.strip()] = (host_info, port_info)
 
 
-host = '127.0.0.1'
 if len(sys.argv) < 2:
     print("포트 정보가 필요합니다.")
     exit()
@@ -44,6 +46,7 @@ if not sys.argv[1].isnumeric():
     print("포트 번호는 숫자입니다.")
     exit()
 
+host = '127.0.0.1'
 port = int(sys.argv[1])
 # 포트 번호 범위 체크도 필요?
 dns_info = dict()
@@ -64,10 +67,20 @@ with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
             if len(cmd) == 2:
                 if cmd[0] == 'ipaddr':
                     query_host = cmd[1]
+
+                    query = Message(
+                        message_id=1,
+                        query_flag=True,
+                        recursive_flag=False,
+                        questions=query_host
+                    )
+
                     dns_host, dns_port = dns_info["local_dns_server"]
-                    client_socket.sendto(query_host.encode(), (dns_host[1], dns_port))
+                    client_socket.sendto(query.encode(), (host, dns_port))
+                    print("쿼리를 전송했습니다.")
 
                     rcv_msg, server_addr = client_socket.recvfrom(2048)
+                    print("reply를 받았습니다.")
                     print(rcv_msg.decode())
                 else:
                     print("존재하지 않는 명령어입니다.")

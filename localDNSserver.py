@@ -23,7 +23,9 @@ import os
 import socket
 import sys
 import threading
+import json
 from re import findall
+from message import Message
 os.system("")
 
 
@@ -88,57 +90,67 @@ def process_query():
 
         while True:
             data, addr = local_dns_socket.recvfrom(1024)
+            print_data("데이터를 수신했습니다.")
 
-            if addr[1] == root_dns_port:
-                reply = data.decode()
+            json_data = json.loads(data.decode())
+            print_data(json_data)
+            recv_message = Message(**json_data)
 
-                local_dns_socket.sendto((reply+" and from local dns server").encode(), (host, client_port))
+            # reply 인 경우
+            if not recv_message.query_flag:
+                print_data("reply 를 수신했습니다.")
+                if addr[1] == root_dns_port:
+                    if recv_message.answers:
+                        print_data(f"client port : {client_port}")
+                        print_data(f"{recv_message}")
+                        local_dns_socket.sendto(recv_message.encode(), (host, client_port))
+                    else:
+                        print_data("호스트에 대한 IP주소를 찾지 못했습니다.")
 
+            # query 인 경우
             else:
+                print_data("query를 수신했습니다.")
                 client_port = addr[1]
+                # 1. 캐시에서 query에 대한 데이터 찾기
+                # 2. 캐시에서 query에 대해 제일 가까운 dns 서버 찾기
 
-                print_data(addr)
-                data = data.decode()
-                print_data(data)
+                # 2-1. name 에서 각 단위를 잘라내기
+                # tokens = data.split('.')
+                # 2-2. www.xyz.com 이면
+                """
+                1. xyz.com dns server 정보가 캐시에 있는지 확인
+                2. .com dns sever 정보가 캐시에 있는지 확인
+                3. root server에 쿼리 전송
+                """
 
                 cache_info = dict()
                 with open('local_dns_cache.txt', encoding="utf-8") as f:
                     cache_data = f.read()
                     get_cache_info(cache_info, cache_data)
-                    #print_data(cache_info)
+                    # print_data(cache_info)
 
-                    if data in cache_info:
-                        # iterate 방식
-                        if 'A' in cache_info[data]:
-                            local_dns_socket.sendto((cache_info[data]['A'] + " from server").encode(), addr)
-                        elif 'CNAME' in cache_info[data]:
-                            local_dns_socket.sendto((cache_info[data]['CNAME'] + " from server").encode(), addr)
-                        else:
-                            # 이상한 타입이 들어있다는 의미
-                            pass
+                if data in cache_info:
+                    # iterate 방식
+                    if 'A' in cache_info[data]:
+                        local_dns_socket.sendto((cache_info[data]['A'] + " from server").encode(), addr)
+                    elif 'CNAME' in cache_info[data]:
+                        local_dns_socket.sendto((cache_info[data]['CNAME'] + " from server").encode(), addr)
                     else:
-                        # Local DNS Server 는 항상 recursive 처리를 요청한다.
-                        print_data(f"{data} 도메인 정보가 캐시에 없습니다. 쿼리를 보냅니다.")
-                        # 1. name 에서 각 단위를 잘라내기
-                        tokens = data.split('.')
-                        # 2. www.xyz.com 이면
-                        """
-                        1. xyz.com dns server 정보가 캐시에 있는지 확인
-                        2. .com dns sever 정보가 캐시에 있는지 확인
-                        3. root server에 쿼리 전송
-                        """
-                        # 3. 모두 캐싱되어 있지 않아서 root 서버에 전송
-                        query_for_root = data + " from server"
-                        local_dns_socket.sendto(query_for_root.encode(), (host, root_dns_port))
+                        # 이상한 타입이 들어있다는 의미
+                        print_data("정의되지 않은 RR 타입이 들어있습니다.")
+                        pass
 
-                        # recursive 든, iterator 든 알아내서 반환하기
-                        # 일단 그냥 에코 반환
-                        local_dns_socket.sendto((data+" from server").encode(), addr)
+                # 3. root dns 서버에 요청 보내기
+                else:
+                    # recv_query 에서 recursion_desired 만 확실하게 True 로 바꿔서 root dns server 에 그대로 전송
+                    query = recv_message
+                    query.recursive_flag = True  # local DNS server는 항상 recursive 처리를 요청한다.
+
+                    print_data(f"{query.questions} 도메인 정보가 캐시에 없습니다. root에 쿼리를 보냅니다.")
+                    local_dns_socket.sendto(query.encode(), (host, root_dns_port))
 
 
 try:
-    host = '127.0.0.1'
-    client_port = None
     if len(sys.argv) < 2:
         print("포트 정보가 필요합니다.")
         exit()
@@ -153,6 +165,9 @@ try:
     port = int(sys.argv[1])
     # 포트 번호 범위 체크 필요?
     dns_info = dict()
+
+    host = '127.0.0.1'
+    client_port = None
 
     # root DNS 서버의 정보 가져오기 (TODO : 지금은 모든 정보를 다 가져옴)
     with open('config.txt', encoding="utf-8") as f:
