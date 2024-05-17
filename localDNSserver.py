@@ -126,11 +126,23 @@ def process_query():
                     elif recv_message.authority:
                         print_data("authority 가 들어있는 응답을 받았습니다.")
                         print_data(recv_message.authority)
-                        # test
-                        local_dns_socket.sendto(recv_message.encode(), (host, client_port))
-                        # test
+
+                        print_data("authority server에 요청을 보냅니다.")
+                        authority_port = recv_message.authority.pop()[1]
+                        print_data(f"authority port : {authority_port}")
+
+                        query = recv_message
+                        query.query_flag = True
+
+                        local_dns_socket.sendto(recv_message.encode(), (host, authority_port))
                     else:
                         print_data("호스트에 대한 IP주소를 찾지 못했습니다.")
+                else: # 다른 서버로부터 reply를 받은 상황
+                    if recv_message.answers:
+                        print_data("answers 가 들어있는 응답을 받았습니다.")
+                        print_data(f"client port : {client_port}")
+                        print_data(f"{recv_message}")
+                        local_dns_socket.sendto(recv_message.encode(), (host, client_port))
 
             # query 인 경우
             else:
