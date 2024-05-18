@@ -72,77 +72,59 @@ def get_cache_info(cache_info, raw_data):
 def process_query():
 
     def find_question_in_cache(question):
+        """
+        1. xyz.com dns server 정보가 캐시에 있는지 확인
+        2. .com dns sever 정보가 캐시에 있는지 확인
+        3. root server에 쿼리 전송
+        """
         with open('local_dns_cache.txt', encoding="utf-8") as cache_file:
             cache_info = dict()
             cache_data = cache_file.read()
             get_cache_info(cache_info, cache_data)
             print_data(cache_info)
 
+            # 일단 RR 타입은 생각하지 말고, host name 만 생각해보자.
             if question in cache_info:
                 # iterate 방식
                 if 'A' in cache_info[question]:
-                    return cache_info[question]['A']
+                    return cache_info[question]['A'], None
                 elif 'CNAME' in cache_info[question]:
-                    return cache_info[question]['CNAME']
+                    return cache_info[question]['CNAME'], None
                 else:
                     # 이상한 타입이 들어있다는 의미
                     pass
 
-            return None
+            tokens = question.split('.')
+            if len(tokens) >= 1 and tokens[-1] == 'com':  # .com
+                if len(tokens) >= 2:  # xyz.com 정보에 대해 캐시에서 찾기
+                    pass
+
+                # 만약 xyz.com 에 대한 정보를 못 찾았다면 .com 에 대해서 정보 찾기
+                if 'dns.comTLDDNSsolution.com' in cache_info:
+                    if 'A' in cache_info['dns.comTLDDNSsolution.com']:
+                        return None, cache_info['dns.comTLDDNSsolution.com']['A']
+                    elif 'CNAME' in cache_info['dns.comTLDDNSsolution.com']:
+                        return None, cache_info['dns.comTLDDNSsolution.com']['CNAME']  # 사실 이 경우에는 CNAME의 IP주소에 대해서 한번 더 쿼리를 보내야하긴 함.
+
+            return None, None
 
     with socket.socket(type=socket.SOCK_DGRAM) as local_dns_socket:
         local_dns_socket.bind((host, port))
 
         while True:
             data, addr = local_dns_socket.recvfrom(1024)
-            print_data("데이터를 수신했습니다.")
-
             json_data = json.loads(data.decode())
-            print_data(json_data)
             recv_message = Message(**json_data)
 
-            # reply 인 경우
-            if not recv_message.query_flag:
-                print_data("reply 를 수신했습니다.")
-                if addr[1] == root_dns_port:
-                    if recv_message.answers:
-                        print_data("answers 가 들어있는 응답을 받았습니다.")
-                        print_data(f"client port : {client_port}")
-                        print_data(f"{recv_message}")
-                        local_dns_socket.sendto(recv_message.encode(), (host, client_port))
-                    elif recv_message.authority:
-                        print_data("authority 가 들어있는 응답을 받았습니다.")
-                        print_data(recv_message.authority)
-
-                        print_data("authority server에 요청을 보냅니다.")
-                        authority_port = recv_message.authority.pop()[1]
-                        print_data(f"authority port : {authority_port}")
-
-                        query = recv_message
-                        query.query_flag = True
-
-                        local_dns_socket.sendto(recv_message.encode(), (host, authority_port))
-                    else:
-                        print_data("호스트에 대한 IP주소를 찾지 못했습니다.")
-                else: # 다른 서버로부터 reply를 받은 상황
-                    if recv_message.answers:
-                        print_data("answers 가 들어있는 응답을 받았습니다.")
-                        print_data(f"client port : {client_port}")
-                        print_data(f"{recv_message}")
-                        local_dns_socket.sendto(recv_message.encode(), (host, client_port))
-
-            # query 인 경우
-            else:
+            if recv_message.query_flag:
                 print_data("query를 수신했습니다.")
+                print_data(recv_message)
                 client_port = addr[1]
-                """
-                1. xyz.com dns server 정보가 캐시에 있는지 확인
-                2. .com dns sever 정보가 캐시에 있는지 확인
-                3. root server에 쿼리 전송
-                """
 
-                cached_answer = find_question_in_cache(recv_message.questions)
+                cached_answer, cached_authority = find_question_in_cache(recv_message.questions)
+
                 if cached_answer:
+                    print_data("캐싱된 answer를 전송합니다.")
                     reply_message = Message(
                         message_id=query.message_id,
                         query_flag=False,
@@ -151,16 +133,51 @@ def process_query():
                         answers=query.answers + (cached_answer,),
                         authority=query.authority
                     )
-                    local_dns_socket.sendto(reply_message.encode(), addr)
-
-                # 3. root dns 서버에 요청 보내기
-                else:
-                    # recv_query 에서 recursion_desired 만 확실하게 True 로 바꿔서 root dns server 에 그대로 전송
+                    local_dns_socket.sendto(reply_message.encode(), (host, client_port))
+                elif cached_authority:
+                    print_data("캐싱된 authority에 쿼리를 재전송합니다.")
                     query = recv_message
                     query.recursive_flag = True  # local DNS server는 항상 recursive 처리를 요청한다.
-
+                    authority_port = cached_authority[1]
+                    local_dns_socket.sendto(query.encode(), (host, authority_port))
+                # 3. root dns 서버에 요청 보내기
+                else:
+                    query = recv_message
                     print_data(f"{query.questions} 도메인 정보가 캐시에 없습니다. root에 쿼리를 보냅니다.")
+                    query.recursive_flag = True  # local DNS server는 항상 recursive 처리를 요청한다.
                     local_dns_socket.sendto(query.encode(), (host, root_dns_port))
+
+            else:  # reply 인 경우
+                print_data("reply 를 수신했습니다.")
+                print_data(recv_message)
+                if recv_message.answers:
+                    print_data("answers 가 들어있는 응답을 받았습니다.")
+                    print_data(f"client port : {client_port}")
+                    print_data(f"{recv_message}")
+                    local_dns_socket.sendto(recv_message.encode(), (host, client_port))
+                elif recv_message.authority:
+                    print_data("authority 가 들어있는 응답을 받았습니다.")
+                    print_data(recv_message.authority)
+
+                    print_data("authority server에 요청을 보냅니다.")
+                    authority_port = recv_message.authority.pop()[1]
+                    print_data(f"authority port : {authority_port}")
+
+                    query = recv_message
+                    query.query_flag = True
+
+                    local_dns_socket.sendto(recv_message.encode(), (host, authority_port))
+                else:
+                    print_data("호스트 이름에 대한 IP주소를 찾지 못했습니다.")
+                    reply_message = Message(
+                        message_id=query.message_id,
+                        query_flag=False,
+                        questions=query.questions,
+                        recursive_flag=False,
+                        answers=query.answers,
+                        authority=query.authority
+                    )
+                    local_dns_socket.sendto(reply_message.encode(), (host, client_port))
 
 
 try:

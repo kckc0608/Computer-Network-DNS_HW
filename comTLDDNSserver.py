@@ -83,8 +83,6 @@ def process_query():
             message_data = json.loads(recv_data.decode())
             message = Message(**message_data)
 
-            print_data(str(message))
-
             if message.query_flag:
                 print_data("쿼리를 수신했습니다.")
                 query = message
@@ -130,9 +128,9 @@ def process_query():
                         )
                         com_tld_dns_socket.sendto(reply_message.encode(), addr)
 
-
-            else:
-                pass  # root dns가 reply를 받는다는건 recursive 방식밖에 없음
+            else:  # reply 수신
+                print_data("reply를 수신했습니다.")
+                pass
 
 
 host = '127.0.0.1'
