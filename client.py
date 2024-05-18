@@ -19,7 +19,7 @@ from re import findall
 
 def get_dns_info(raw_data):
     for line in raw_data.split('\n'):
-        if line[0] in '# \n':
+        if not line or line[0] in '# \n':
             # 주석, 공백, 개행은 무시한다.
             continue
 
@@ -71,7 +71,7 @@ with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
                     query = Message(
                         message_id=1,
                         query_flag=True,
-                        recursive_flag=False,
+                        recursive_desired=False,
                         questions=query_host
                     )
 

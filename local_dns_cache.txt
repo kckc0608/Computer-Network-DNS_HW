@@ -2,3 +2,5 @@ dns.rootDNSservice.com , 99.99.99.99 , A
 dns.comTLDDNSsolution.com , 111.112.113.44 , A
 www.xyznet.com , server1.xyznet.com , CNAME
 server1.xyznet.com , 203.249.88.112 , A
+com , [['dns.comTLDDNSsolution.com', None]]
+net , [[None, None]]

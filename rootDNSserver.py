@@ -57,23 +57,27 @@ def get_cache_info(cache_info, raw_data):
 def process_query():
 
     def find_question_in_cache(question):
-        with open('local_dns_cache.txt', encoding="utf-8") as cache_file:
+        with open('root_dns_cache.txt', encoding="utf-8") as cache_file:
             cache_info = dict()
             cache_data = cache_file.read()
             get_cache_info(cache_info, cache_data)
             print_data(cache_info)
 
-            if question in cache_info:
-                # iterate 방식
-                if 'A' in cache_info[question]:
-                    return cache_info[question]['A']
-                elif 'CNAME' in cache_info[question]:
-                    return cache_info[question]['CNAME']
-                else:
-                    # 이상한 타입이 들어있다는 의미
-                    pass
+            tokens = question.split('.')
+            for i in range(len(tokens)):
+                question = ".".join(tokens[i:])
+                print_data(question)
+                # 일단 RR 타입은 생각하지 말고, host name 만 생각해보자.
+                if question in cache_info:
+                    # iterate 방식
+                    if 'A' in cache_info[question]:
+                        return cache_info[question]['A'], None
+                    elif 'CNAME' in cache_info[question]:
+                        return cache_info[question]['CNAME'], None
+                    elif 'NS' in cache_info[question]:
+                        return cache_info[question]['NS'], None
 
-            return None
+            return None, None
 
     with socket.socket(type=socket.SOCK_DGRAM) as root_dns_socket:
         root_dns_socket.bind((host, port))
@@ -94,14 +98,14 @@ def process_query():
                         message_id=query.message_id,
                         query_flag=False,
                         questions=query.questions,
-                        recursive_flag=False,
+                        recursive_desired=False,
                         answers=tuple(query.answers) + (cached_answer,),
                         authority=query.authority
                     )
                     root_dns_socket.sendto(reply_message.encode(), addr)
                 else:
                     print_data(f"cache에 {message.questions}이 없습니다.")
-                    if query.recursive_flag:  # recursive 요청 (사실 항상 이쪽으로 들어옴. local dns server는 항상 recursive 요청을 보냄)
+                    if query.recursive_desired:  # recursive 요청 (사실 항상 이쪽으로 들어옴. local dns server는 항상 recursive 요청을 보냄)
                         if recursive_flag:  # recursive 수락
                             "recursive 과정으로 IP주소 알아오기"
                             pass
@@ -111,7 +115,7 @@ def process_query():
                                 message_id=query.message_id,
                                 query_flag=False,
                                 questions=query.questions,
-                                recursive_flag=False,
+                                recursive_desired=False,
                                 answers=tuple(query.answers),
                                 authority=tuple(query.authority) + (dns_info.get("comTLD_dns_server"),)
                             )

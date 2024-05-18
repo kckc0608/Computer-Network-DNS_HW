@@ -26,7 +26,7 @@ import threading
 import json
 from re import findall
 from message import Message
-from common import print_data
+from common import print_data, save_data_to_file
 os.system("")
 
 
@@ -51,7 +51,7 @@ def get_dns_info(raw_data):
 
 
 def get_cache_info(cache_info, raw_data):
-    for line in raw_data.split('\n'):
+    for line in raw_data.strip().split('\n'):
         if line[0] in '# \n':
             # 주석, 공백, 개행은 무시한다.
             continue
@@ -83,28 +83,19 @@ def process_query():
             get_cache_info(cache_info, cache_data)
             print_data(cache_info)
 
-            # 일단 RR 타입은 생각하지 말고, host name 만 생각해보자.
-            if question in cache_info:
-                # iterate 방식
-                if 'A' in cache_info[question]:
-                    return cache_info[question]['A'], None
-                elif 'CNAME' in cache_info[question]:
-                    return cache_info[question]['CNAME'], None
-                else:
-                    # 이상한 타입이 들어있다는 의미
-                    pass
-
             tokens = question.split('.')
-            if len(tokens) >= 1 and tokens[-1] == 'com':  # .com
-                if len(tokens) >= 2:  # xyz.com 정보에 대해 캐시에서 찾기
-                    pass
-
-                # 만약 xyz.com 에 대한 정보를 못 찾았다면 .com 에 대해서 정보 찾기
-                if 'dns.comTLDDNSsolution.com' in cache_info:
-                    if 'A' in cache_info['dns.comTLDDNSsolution.com']:
-                        return None, cache_info['dns.comTLDDNSsolution.com']['A']
-                    elif 'CNAME' in cache_info['dns.comTLDDNSsolution.com']:
-                        return None, cache_info['dns.comTLDDNSsolution.com']['CNAME']  # 사실 이 경우에는 CNAME의 IP주소에 대해서 한번 더 쿼리를 보내야하긴 함.
+            for i in range(len(tokens)):
+                question = ".".join(tokens[i:])
+                print_data(question)
+                # 일단 RR 타입은 생각하지 말고, host name 만 생각해보자.
+                if question in cache_info:
+                    # iterate 방식
+                    if 'A' in cache_info[question]:
+                        return cache_info[question]['A'], None
+                    elif 'CNAME' in cache_info[question]:
+                        return cache_info[question]['CNAME'], None
+                    elif 'NS' in cache_info[question]:
+                        return cache_info[question]['NS'], None
 
             return None, None
 
@@ -129,7 +120,7 @@ def process_query():
                         message_id=query.message_id,
                         query_flag=False,
                         questions=query.questions,
-                        recursive_flag=False,
+                        recursive_desired=False,
                         answers=query.answers + (cached_answer,),
                         authority=query.authority
                     )
@@ -137,14 +128,19 @@ def process_query():
                 elif cached_authority:
                     print_data("캐싱된 authority에 쿼리를 재전송합니다.")
                     query = recv_message
-                    query.recursive_flag = True  # local DNS server는 항상 recursive 처리를 요청한다.
+                    query.recursive_desired = True  # local DNS server는 항상 recursive 처리를 요청한다.
                     authority_port = cached_authority[1]
                     local_dns_socket.sendto(query.encode(), (host, authority_port))
                 # 3. root dns 서버에 요청 보내기
                 else:
-                    query = recv_message
+                    tld_question = recv_message.questions.split('.')[-1]
+                    query = Message(
+                        message_id=recv_message.message_id + 1,
+                        query_flag=True,
+                        questions=tld_question,
+                        recursive_desired=True,
+                    )
                     print_data(f"{query.questions} 도메인 정보가 캐시에 없습니다. root에 쿼리를 보냅니다.")
-                    query.recursive_flag = True  # local DNS server는 항상 recursive 처리를 요청한다.
                     local_dns_socket.sendto(query.encode(), (host, root_dns_port))
 
             else:  # reply 인 경우
@@ -153,6 +149,10 @@ def process_query():
                 if recv_message.answers:
                     print_data("answers 가 들어있는 응답을 받았습니다.")
                     print_data(f"client port : {client_port}")
+
+                    # Caching
+                    save_data_to_file(' , '.join([str(recv_message.questions), str(recv_message.answers)]) + '\n', 'local_dns_cache.txt')
+
                     print_data(f"{recv_message}")
                     local_dns_socket.sendto(recv_message.encode(), (host, client_port))
                 elif recv_message.authority:
@@ -173,7 +173,7 @@ def process_query():
                         message_id=query.message_id,
                         query_flag=False,
                         questions=query.questions,
-                        recursive_flag=False,
+                        recursive_desired=False,
                         answers=query.answers,
                         authority=query.authority
                     )

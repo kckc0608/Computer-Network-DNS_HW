@@ -94,14 +94,14 @@ def process_query():
                         message_id=query.message_id,
                         query_flag=False,
                         questions=query.questions,
-                        recursive_flag=False,
+                        recursive_desired=False,
                         answers=tuple(query.answers) + (cached_answer,),
                         authority=query.authority
                     )
                     com_tld_dns_socket.sendto(reply_message.encode(), addr)
                 else:
                     print_data(f"cache에 {message.questions}이 없습니다.")
-                    if query.recursive_flag:  # recursive 요청 (사실 항상 이쪽으로 들어옴. local dns server는 항상 recursive 요청을 보냄)
+                    if query.recursive_desired:  # recursive 요청 (사실 항상 이쪽으로 들어옴. local dns server는 항상 recursive 요청을 보냄)
                         if recursive_flag:  # recursive 수락
                             "recursive 과정으로 IP주소 알아오기"
                             pass
@@ -111,7 +111,7 @@ def process_query():
                                 message_id=query.message_id,
                                 query_flag=False,
                                 questions=query.questions,
-                                recursive_flag=False,
+                                recursive_desired=False,
                                 answers=tuple(query.answers),
                                 authority=tuple(query.authority) + (dns_info.get("abcdef_dns_server"),)
                             )
@@ -122,7 +122,7 @@ def process_query():
                             message_id=query.message_id,
                             query_flag=False,
                             questions=query.questions,
-                            recursive_flag=False,
+                            recursive_desired=False,
                             answers=tuple(query.answers) + (dns_info.get("abcdef_dns_server"),),
                             authority=tuple(query.authority) #+ (dns_info.get("abcdef_dns_server"),)
                         )
