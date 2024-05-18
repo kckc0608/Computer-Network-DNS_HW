@@ -46,8 +46,10 @@ def get_dns_info(raw_data):
         port_info = int(port_info[0][2:])
 
         dns_info[server_name.strip()] = (host_info, port_info)
+        ip_to_port[host_info[1]] = port_info
     print("root DNS 서버의 정보를 가져왔습니다.")
     print(dns_info)
+    print(ip_to_port)
 
 
 def get_cache_info(cache_info, raw_data):
@@ -100,6 +102,7 @@ def process_query():
             return None, None
 
     with socket.socket(type=socket.SOCK_DGRAM) as local_dns_socket:
+        query_table = dict()
         local_dns_socket.bind((host, port))
 
         while True:
@@ -133,13 +136,8 @@ def process_query():
                     local_dns_socket.sendto(query.encode(), (host, authority_port))
                 # 3. root dns 서버에 요청 보내기
                 else:
-                    tld_question = recv_message.questions.split('.')[-1]
-                    query = Message(
-                        message_id=recv_message.message_id + 1,
-                        query_flag=True,
-                        questions=tld_question,
-                        recursive_desired=True,
-                    )
+                    query = recv_message
+                    query.recursive_desired = True  # local DNS server는 항상 recursive 처리를 요청한다.
                     print_data(f"{query.questions} 도메인 정보가 캐시에 없습니다. root에 쿼리를 보냅니다.")
                     local_dns_socket.sendto(query.encode(), (host, root_dns_port))
 
@@ -159,14 +157,27 @@ def process_query():
                     print_data("authority 가 들어있는 응답을 받았습니다.")
                     print_data(recv_message.authority)
 
-                    print_data("authority server에 요청을 보냅니다.")
-                    authority_port = recv_message.authority.pop()[1]
-                    print_data(f"authority port : {authority_port}")
+                    authority_record_data, authority_record_type = recv_message.authority.pop()
+                    if authority_record_type == 'A':
+                        print_data("authority server에 요청을 보냅니다.")
+                        if authority_record_data not in ip_to_port:
+                            raise Exception(f"IP 주소 {authority_record_data} 에 대한 포트 정보가 없습니다.")
+                        authority_port = ip_to_port[authority_record_data]
 
-                    query = recv_message
-                    query.query_flag = True
+                        query = recv_message
+                        query.query_flag = True
+                        local_dns_socket.sendto(recv_message.encode(), (host, authority_port))
+                    else:
+                        print_data("authority server의 IP를 알아내기 위해 다시 요청을 보냅니다.")
+                        query_message = Message(
+                            message_id=query.message_id,
+                            query_flag=True,
+                            questions=authority_record_data,
+                            recursive_desired=True
+                        )
 
-                    local_dns_socket.sendto(recv_message.encode(), (host, authority_port))
+                        # 원래는 캐시를 뒤져야 할 것 같긴 한데, 일단 다시 root 서버로 재전송
+                        local_dns_socket.sendto(query_message.encode(), (host, root_dns_port))
                 else:
                     print_data("호스트 이름에 대한 IP주소를 찾지 못했습니다.")
                     reply_message = Message(
@@ -195,6 +206,7 @@ try:
     port = int(sys.argv[1])
     # 포트 번호 범위 체크 필요?
     dns_info = dict()
+    ip_to_port = dict()
 
     host = '127.0.0.1'
     client_port = None

@@ -65,17 +65,19 @@ def process_query():
 
             tokens = question.split('.')
             for i in range(len(tokens)):
-                question = ".".join(tokens[i:])
-                print_data(question)
+                sub_question = ".".join(tokens[i:])
                 # 일단 RR 타입은 생각하지 말고, host name 만 생각해보자.
-                if question in cache_info:
-                    # iterate 방식
-                    if 'A' in cache_info[question]:
-                        return cache_info[question]['A'], None
-                    elif 'CNAME' in cache_info[question]:
-                        return cache_info[question]['CNAME'], None
-                    elif 'NS' in cache_info[question]:
-                        return cache_info[question]['NS'], None
+                if sub_question in cache_info:
+                    print_data(f"{sub_question}을 캐시에서 찾았습니다.")
+                    if 'A' in cache_info[sub_question]:
+                        if sub_question == question:
+                            return cache_info[sub_question]['A'], None
+                        else:
+                            return None, cache_info[sub_question]['A']
+                    elif 'CNAME' in cache_info[sub_question]:
+                        return None, cache_info[sub_question]['CNAME']
+                    elif 'NS' in cache_info[sub_question]:
+                        return None, (cache_info[sub_question]['NS'], 'NS')
 
             return None, None
 
@@ -92,7 +94,9 @@ def process_query():
                 query = message
                 print_data(query)
 
-                cached_answer = find_question_in_cache(message.questions)
+                cached_answer, cached_authority = find_question_in_cache(message.questions)
+                print_data("캐시 검색 결과")
+                print_data((cached_answer, cached_authority))
                 if cached_answer:
                     reply_message = Message(
                         message_id=query.message_id,
@@ -100,9 +104,24 @@ def process_query():
                         questions=query.questions,
                         recursive_desired=False,
                         answers=tuple(query.answers) + (cached_answer,),
-                        authority=query.authority
+                        authority=tuple(query.authority)
                     )
                     root_dns_socket.sendto(reply_message.encode(), addr)
+                elif cached_authority:
+                    if query.recursive_desired and recursive_flag:
+                        "recursive 하게 대신 알아오기"
+                        pass
+                    else:
+                        print_data("iterative 방식으로서 authority 를 응답합니다.")
+                        reply_message = Message(
+                            message_id=query.message_id,
+                            query_flag=False,
+                            questions=query.questions,
+                            recursive_desired=False,
+                            answers=tuple(query.answers),
+                            authority=tuple(query.authority) + (cached_authority,)
+                        )
+                        root_dns_socket.sendto(reply_message.encode(), addr)
                 else:
                     print_data(f"cache에 {message.questions}이 없습니다.")
                     if query.recursive_desired:  # recursive 요청 (사실 항상 이쪽으로 들어옴. local dns server는 항상 recursive 요청을 보냄)
@@ -110,7 +129,7 @@ def process_query():
                             "recursive 과정으로 IP주소 알아오기"
                             pass
                         else:
-                            "TLD 정보 보내주고 끝"
+                            "TLD 정보는 캐시에 들어있기 때문에, 진작 보낼 수 있었어야 한다..?"
                             reply_message = Message(
                                 message_id=query.message_id,
                                 query_flag=False,
@@ -125,6 +144,7 @@ def process_query():
 
 
             else:
+                print_data("reply 를 받았습니다.")
                 pass  # root dns가 reply를 받는다는건 recursive 방식밖에 없음
 
 

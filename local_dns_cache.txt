@@ -4,3 +4,10 @@ www.xyznet.com , server1.xyznet.com , CNAME
 server1.xyznet.com , 203.249.88.112 , A
 com , [['dns.comTLDDNSsolution.com', None]]
 net , [[None, None]]
+xy.com , [['dns.comTLDDNSsolution.com', None]]
+xy.com , [['dns.comTLDDNSsolution.com', None]]
+xy.com , ['dns.comTLDDNSsolution.com']
+xy.com , ['dns.comTLDDNSsolution.com']
+dns.comTLDDNSsolution.com , ['111.112.113.44']
+dns.comTLDDNSsolution.com , ['111.112.113.44']
+dns.comTLDDNSsolution.com , ['111.112.113.44']
