@@ -16,51 +16,77 @@ import json
 os.system("")
 
 
-def get_dns_cache(raw_data):
+def get_cache_info(cache_info, raw_data):
     for line in raw_data.split('\n'):
         if not line:
             continue
-
         if line[0] in '# \n':
             # 주석, 공백, 개행은 무시한다.
             continue
 
-        server_name, info = line.split('=')
-        host_info = findall(r'\[.*\]', info)
-        port_info = findall(r'\] [0-9]{1,5}', info)
-        if not host_info or not port_info:
-            raise Exception("config.txt 파일 내용이 잘못되었습니다.")
+        data = line.split(',')
+        if len(data) != 3:
+            print("cache.txt 형식이 잘못되었습니다.")
+            continue
 
-        host_info = tuple(map(lambda x: x.strip(), host_info[0][1:-1].split(',')))
-        port_info = int(port_info[0][2:])
+        record_host, record_target, record_type = map(lambda x: x.strip(), data)
 
-        dns_cache[server_name.strip()] = (host_info, port_info)
+        if record_host not in cache_info:
+            cache_info[record_host] = dict()
+
+        cache_info[record_host][record_type] = record_target
 
 
 def process_query():
 
-    with socket.socket(type=socket.SOCK_DGRAM) as local_dns_socket:
-        local_dns_socket.bind((host, port))
+    with socket.socket(type=socket.SOCK_DGRAM) as company_dns_socket:
+        company_dns_socket.bind((host, port))
 
         while True:
-            data, addr = local_dns_socket.recvfrom(1024)
+            data, addr = company_dns_socket.recvfrom(1024)
             data = json.loads(data.decode())
             recv_message = Message(**data)
 
+            print_data("메세지를 수신했습니다.")
+            print_data(recv_message)
+
             if not recv_message.query_flag:
-                # reply는 무시한다.
+                # company dns server는 최종 dns 서버 이므로 쿼리를 보낼 일이 없다.
+                # 따라서 reply는 무시한다.
                 continue
 
-            if recv_message.questions in dns_cache:
-                if 'A' in dns_cache[data]:
-                    local_dns_socket.sendto((dns_cache[data]['A'] + " from server").encode(), addr)
-                elif 'CNAME' in dns_cache[data]:
-                    local_dns_socket.sendto((dns_cache[data]['CNAME'] + " from server").encode(), addr)
+            reply = Message(
+                message_id=recv_message.message_id,
+                questions=recv_message.questions,
+                query_flag=False,
+                recursive_desired=recv_message.recursive_desired,
+                answers=tuple(recv_message.answers),
+                authority=tuple(recv_message.authority)
+            )
+            if reply.questions in dns_cache:
+                print_data(f"{reply.questions}을 캐시에서 찾았습니다.")
+                if 'A' in dns_cache[reply.questions]:
+                    reply.answers += ((reply.questions, dns_cache[reply.questions]['A'], 'A'),)
                 else:
-                    # 이상한 타입이 들어있다는 의미
-                    pass
+                    question = reply.questions
+                    while 'A' not in dns_cache[question]:
+                        if 'CNAME' in dns_cache[question]:
+                            question = dns_cache[question]['CNAME']
+                        elif 'NS' in dns_cache[question]:
+                            question = dns_cache[question]['NS']
+                        if question not in dns_cache:
+                            print_data("A 레코드 정보를 찾지 못했습니다.")
+                            question = None
+                            break
+
+                    if question:
+                        reply.answers += ((reply.questions, dns_cache[question]['A'], 'A'),)
+
+                company_dns_socket.sendto(reply.encode(), addr)
+
             else:
-                local_dns_socket.sendto((data+" from server").encode(), addr)
+                # 일단 보내줄 데이터가 없으면 응답 X
+                pass
 
 
 try:
@@ -90,7 +116,7 @@ try:
 
     with open(domain_info_file_name, encoding="utf-8") as f:
         read_data = f.read()
-        get_dns_cache(read_data)
+        get_cache_info(dns_cache, read_data)
         print(dns_cache)
 
     input_thread = threading.Thread(target=process_query)

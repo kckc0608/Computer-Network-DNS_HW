@@ -37,6 +37,8 @@ def get_dns_info(raw_data):
 
 def get_cache_info(cache_info, raw_data):
     for line in raw_data.split('\n'):
+        if not line:
+            continue
         if line[0] in '# \n':
             # 주석, 공백, 개행은 무시한다.
             continue
@@ -70,16 +72,13 @@ def process_query():
                 if sub_question in cache_info:
                     print_data(f"{sub_question}을 캐시에서 찾았습니다.")
                     if 'A' in cache_info[sub_question]:
-                        if sub_question == question:
-                            return cache_info[sub_question]['A'], None
-                        else:
-                            return None, cache_info[sub_question]['A']
+                        return sub_question, cache_info[sub_question]['A'], 'A'
                     elif 'CNAME' in cache_info[sub_question]:
-                        return None, cache_info[sub_question]['CNAME']
+                        return sub_question, cache_info[sub_question]['CNAME'], 'CANME'
                     elif 'NS' in cache_info[sub_question]:
-                        return None, (cache_info[sub_question]['NS'], 'NS')
+                        return sub_question, cache_info[sub_question]['NS'], 'NS'
 
-            return None, None
+            return None, None, None
 
     with socket.socket(type=socket.SOCK_DGRAM) as com_tld_dns_socket:
         com_tld_dns_socket.bind((host, port))
@@ -94,63 +93,45 @@ def process_query():
                 query = message
                 print_data(query)
 
-                cached_answer, cached_authority = find_question_in_cache(message.questions)
-                if cached_answer:
-                    reply_message = Message(
-                        message_id=query.message_id,
-                        query_flag=False,
-                        questions=query.questions,
-                        recursive_desired=False,
-                        answers=tuple(query.answers) + (cached_answer,),
-                        authority=query.authority
-                    )
-                    com_tld_dns_socket.sendto(reply_message.encode(), addr)
-                elif cached_authority:
-                    if query.recursive_desired and recursive_flag:
-                        "recursive 하게 대신 알아오기"
-                        pass
-                    else:
-                        print_data("iterative 방식으로 authority 를 응답합니다.")
+                cached_for, cached_record, cached_type = find_question_in_cache(message.questions)
+                print_data("캐시 검색 결과")
+                print_data((cached_for, cached_record, cached_type))
+
+                if cached_for:
+                    if cached_for == message.questions:
                         reply_message = Message(
                             message_id=query.message_id,
                             query_flag=False,
                             questions=query.questions,
                             recursive_desired=False,
-                            answers=tuple(query.answers),
-                            authority=tuple(query.authority) + (cached_authority,)
+                            answers=tuple(query.answers) + ((cached_for, cached_record, cached_type),),
+                            authority=tuple(query.authority)
                         )
                         com_tld_dns_socket.sendto(reply_message.encode(), addr)
-                else:
-                    print_data(f"cache에 {message.questions}이 없습니다.")
-                    if query.recursive_desired:  # recursive 요청 (사실 항상 이쪽으로 들어옴. local dns server는 항상 recursive 요청을 보냄)
-                        if recursive_flag:  # recursive 수락
-                            "recursive 과정으로 IP주소 알아오기"
+                    else:
+                        if query.recursive_desired and recursive_flag:
+                            "recursive 하게 대신 알아오기"
                             pass
                         else:
-                            "company dns 정보 보내주고 끝"
+                            print_data("iterative 방식으로 authority 를 응답합니다.")
                             reply_message = Message(
                                 message_id=query.message_id,
                                 query_flag=False,
                                 questions=query.questions,
                                 recursive_desired=False,
                                 answers=tuple(query.answers),
-                                authority=tuple(query.authority) + (dns_info.get("abcdef_dns_server"),)
+                                authority=tuple(query.authority) + ((cached_for, cached_record, cached_type),),
                             )
+                            while cached_type != 'A':
+                                cached_for, cached_record, cached_type = find_question_in_cache(cached_record)
+                                reply_message.authority += ((cached_for, cached_record, cached_type),)
                             com_tld_dns_socket.sendto(reply_message.encode(), addr)
-                    else:
-                        "company dns 정보 보내주고 끝"
-                        reply_message = Message(
-                            message_id=query.message_id,
-                            query_flag=False,
-                            questions=query.questions,
-                            recursive_desired=False,
-                            answers=tuple(query.answers) + (dns_info.get("abcdef_dns_server"),),
-                            authority=tuple(query.authority) #+ (dns_info.get("abcdef_dns_server"),)
-                        )
-                        com_tld_dns_socket.sendto(reply_message.encode(), addr)
+                else:  # 쿼리와 관련되어 요청을 보내볼 만한 서버를 아무것도 찾지 못함.
+                    print_data(f"cache에 {message.questions}이 없습니다.")
+                    print_data(f"com tld server 에 없는 쿼리는 처리할 수 없습니다.")
 
             else:  # reply 수신
-                print_data("reply를 수신했습니다.")
+                print_data("reply를 수신했습니다.")  # recursive 처리로 한다는 뜻
                 pass
 
 

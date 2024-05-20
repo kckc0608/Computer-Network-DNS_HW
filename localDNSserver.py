@@ -54,6 +54,8 @@ def get_dns_info(raw_data):
 
 def get_cache_info(cache_info, raw_data):
     for line in raw_data.strip().split('\n'):
+        if not line:
+            continue
         if line[0] in '# \n':
             # 주석, 공백, 개행은 무시한다.
             continue
@@ -74,11 +76,6 @@ def get_cache_info(cache_info, raw_data):
 def process_query():
 
     def find_question_in_cache(question):
-        """
-        1. xyz.com dns server 정보가 캐시에 있는지 확인
-        2. .com dns sever 정보가 캐시에 있는지 확인
-        3. root server에 쿼리 전송
-        """
         with open('local_dns_cache.txt', encoding="utf-8") as cache_file:
             cache_info = dict()
             cache_data = cache_file.read()
@@ -87,19 +84,18 @@ def process_query():
 
             tokens = question.split('.')
             for i in range(len(tokens)):
-                question = ".".join(tokens[i:])
-                print_data(question)
+                sub_question = ".".join(tokens[i:])
                 # 일단 RR 타입은 생각하지 말고, host name 만 생각해보자.
-                if question in cache_info:
-                    # iterate 방식
-                    if 'A' in cache_info[question]:
-                        return cache_info[question]['A'], None
-                    elif 'CNAME' in cache_info[question]:
-                        return cache_info[question]['CNAME'], None
-                    elif 'NS' in cache_info[question]:
-                        return cache_info[question]['NS'], None
+                if sub_question in cache_info:
+                    print_data(f"{sub_question}을 캐시에서 찾았습니다.")
+                    if 'A' in cache_info[sub_question]:
+                        return sub_question, cache_info[sub_question]['A'], 'A'
+                    elif 'CNAME' in cache_info[sub_question]:
+                        return sub_question, cache_info[sub_question]['CNAME'], 'CANME'
+                    elif 'NS' in cache_info[sub_question]:
+                        return sub_question, cache_info[sub_question]['NS'], 'NS'
 
-            return None, None
+            return None, None, None
 
     with socket.socket(type=socket.SOCK_DGRAM) as local_dns_socket:
         query_table = dict()
@@ -115,25 +111,33 @@ def process_query():
                 print_data(recv_message)
                 client_port = addr[1]
 
-                cached_answer, cached_authority = find_question_in_cache(recv_message.questions)
+                cached_for, cached_record, cached_type = find_question_in_cache(recv_message.questions)
+                while cached_type != 'A':
+                    cached_for, cached_record, cached_type = find_question_in_cache(cached_record)
 
-                if cached_answer:
-                    print_data("캐싱된 answer를 전송합니다.")
-                    reply_message = Message(
-                        message_id=query.message_id,
-                        query_flag=False,
-                        questions=query.questions,
-                        recursive_desired=False,
-                        answers=query.answers + (cached_answer,),
-                        authority=query.authority
-                    )
-                    local_dns_socket.sendto(reply_message.encode(), (host, client_port))
-                elif cached_authority:
-                    print_data("캐싱된 authority에 쿼리를 재전송합니다.")
-                    query = recv_message
-                    query.recursive_desired = True  # local DNS server는 항상 recursive 처리를 요청한다.
-                    authority_port = cached_authority[1]
-                    local_dns_socket.sendto(query.encode(), (host, authority_port))
+                if cached_for:
+                    if recv_message.questions == cached_for:
+                        while cached_type != 'A':
+                            cached_for, cached_record, cached_type = find_question_in_cache(cached_record)
+
+                        print_data("캐싱된 answer를 전송합니다.")
+                        reply_message = Message(
+                            message_id=query.message_id,
+                            query_flag=False,
+                            questions=query.questions,
+                            recursive_desired=False,
+                            answers=query.answers + (cached_for,),
+                            authority=query.authority
+                        )
+                        local_dns_socket.sendto(reply_message.encode(), (host, client_port))
+                    else:
+                        print_data("캐싱된 authority에 쿼리를 재전송합니다.")
+                        query = recv_message
+                        query.recursive_desired = True  # local DNS server는 항상 recursive 처리를 요청한다.
+                        while cached_type != 'A':
+                            cached_for, cached_record, cached_type = find_question_in_cache(cached_record)
+                        authority_port = ip_to_port[cached_record]
+                        local_dns_socket.sendto(query.encode(), (host, authority_port))
                 # 3. root dns 서버에 요청 보내기
                 else:
                     query = recv_message
@@ -157,27 +161,35 @@ def process_query():
                     print_data("authority 가 들어있는 응답을 받았습니다.")
                     print_data(recv_message.authority)
 
-                    authority_record_data, authority_record_type = recv_message.authority.pop()
-                    if authority_record_type == 'A':
-                        print_data("authority server에 요청을 보냅니다.")
-                        if authority_record_data not in ip_to_port:
-                            raise Exception(f"IP 주소 {authority_record_data} 에 대한 포트 정보가 없습니다.")
-                        authority_port = ip_to_port[authority_record_data]
+                    # Caching
+                    for auth_for, auth_record, auth_type in recv_message.authority:
 
-                        query = recv_message
-                        query.query_flag = True
-                        local_dns_socket.sendto(recv_message.encode(), (host, authority_port))
-                    else:
-                        print_data("authority server의 IP를 알아내기 위해 다시 요청을 보냅니다.")
-                        query_message = Message(
-                            message_id=query.message_id,
-                            query_flag=True,
-                            questions=authority_record_data,
-                            recursive_desired=True
-                        )
+                        save_data_to_file(' , '.join([auth_for, auth_record, auth_type]) + '\n','local_dns_cache.txt')
 
-                        # 원래는 캐시를 뒤져야 할 것 같긴 한데, 일단 다시 root 서버로 재전송
-                        local_dns_socket.sendto(query_message.encode(), (host, root_dns_port))
+                    auth_for, auth_record, auth_type = find_question_in_cache(recv_message.questions)
+                    while auth_type != 'A':
+                        auth_for, auth_record, auth_type = find_question_in_cache(auth_record)
+
+                    # 이 과정을 거치면 auth_type = A 인 레코드를 얻을 수 있다고 가정함.
+                    #if authority_record_type == 'A':
+                    print_data("authority server에 요청을 보냅니다.")
+
+                    if auth_record not in ip_to_port:
+                        print_data(ip_to_port)
+                        raise Exception(f"IP 주소 {auth_record} 에 대한 포트 정보가 없습니다.")
+
+                    authority_port = ip_to_port[auth_record]
+                    query = recv_message
+                    query.query_flag = True
+                    local_dns_socket.sendto(recv_message.encode(), (host, authority_port))
+                    # else:
+                    #     print_data("authority server의 IP를 알아내기 위해 다시 요청을 보냅니다.")
+                    #     query_message = Message(
+                    #         message_id=query.message_id,
+                    #         query_flag=True,
+                    #         questions=authority_record_data,
+                    #         recursive_desired=True
+                    #     )
                 else:
                     print_data("호스트 이름에 대한 IP주소를 찾지 못했습니다.")
                     reply_message = Message(
@@ -241,3 +253,4 @@ try:
 except Exception as ex:
     print("예상치 못한 오류가 발생했습니다.")
     print(ex)
+    input("계속하려면 아무 키나 누르십시오...")

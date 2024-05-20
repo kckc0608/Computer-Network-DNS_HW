@@ -1,0 +1,2 @@
+xy.com , dns.xy.com , NS
+dns.xy.com , 111.112.113.114 , A

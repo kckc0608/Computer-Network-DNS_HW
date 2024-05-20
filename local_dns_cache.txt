@@ -1,14 +1,8 @@
 dns.rootDNSservice.com , 99.99.99.99 , A
 dns.comTLDDNSsolution.com , 111.112.113.44 , A
 www.xyznet.com , server1.xyznet.com , CNAME
-server1.xyznet.com , 203.249.88.112 , A
-com , [['dns.comTLDDNSsolution.com', None]]
-net , [[None, None]]
-xy.com , [['dns.comTLDDNSsolution.com', None]]
-xy.com , [['dns.comTLDDNSsolution.com', None]]
-xy.com , ['dns.comTLDDNSsolution.com']
-xy.com , ['dns.comTLDDNSsolution.com']
-dns.comTLDDNSsolution.com , ['111.112.113.44']
-dns.comTLDDNSsolution.com , ['111.112.113.44']
-dns.comTLDDNSsolution.com , ['111.112.113.44']
-dns.comTLDDNSsolution.com , ['111.112.113.44']
+com , dns.comTLDDNSsolution.com , NS
+dns.comTLDDNSsolution.com , 111.112.113.44 , A
+xy.com , dns.xy.com , NS
+dns.xy.com , 111.112.113.114 , A
+www.xy.com , [['www.xy.com', '100.101.102.103', 'A']]
