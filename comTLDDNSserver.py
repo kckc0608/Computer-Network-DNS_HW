@@ -57,23 +57,29 @@ def get_cache_info(cache_info, raw_data):
 def process_query():
 
     def find_question_in_cache(question):
-        with open('local_dns_cache.txt', encoding="utf-8") as cache_file:
+        with open('com_tld_dns_cache.txt', encoding="utf-8") as cache_file:
             cache_info = dict()
             cache_data = cache_file.read()
             get_cache_info(cache_info, cache_data)
             print_data(cache_info)
 
-            if question in cache_info:
-                # iterate 방식
-                if 'A' in cache_info[question]:
-                    return cache_info[question]['A']
-                elif 'CNAME' in cache_info[question]:
-                    return cache_info[question]['CNAME']
-                else:
-                    # 이상한 타입이 들어있다는 의미
-                    pass
+            tokens = question.split('.')
+            for i in range(len(tokens)):
+                sub_question = ".".join(tokens[i:])
+                # 일단 RR 타입은 생각하지 말고, host name 만 생각해보자.
+                if sub_question in cache_info:
+                    print_data(f"{sub_question}을 캐시에서 찾았습니다.")
+                    if 'A' in cache_info[sub_question]:
+                        if sub_question == question:
+                            return cache_info[sub_question]['A'], None
+                        else:
+                            return None, cache_info[sub_question]['A']
+                    elif 'CNAME' in cache_info[sub_question]:
+                        return None, cache_info[sub_question]['CNAME']
+                    elif 'NS' in cache_info[sub_question]:
+                        return None, (cache_info[sub_question]['NS'], 'NS')
 
-            return None
+            return None, None
 
     with socket.socket(type=socket.SOCK_DGRAM) as com_tld_dns_socket:
         com_tld_dns_socket.bind((host, port))
@@ -88,7 +94,7 @@ def process_query():
                 query = message
                 print_data(query)
 
-                cached_answer = find_question_in_cache(message.questions)
+                cached_answer, cached_authority = find_question_in_cache(message.questions)
                 if cached_answer:
                     reply_message = Message(
                         message_id=query.message_id,
@@ -99,6 +105,21 @@ def process_query():
                         authority=query.authority
                     )
                     com_tld_dns_socket.sendto(reply_message.encode(), addr)
+                elif cached_authority:
+                    if query.recursive_desired and recursive_flag:
+                        "recursive 하게 대신 알아오기"
+                        pass
+                    else:
+                        print_data("iterative 방식으로 authority 를 응답합니다.")
+                        reply_message = Message(
+                            message_id=query.message_id,
+                            query_flag=False,
+                            questions=query.questions,
+                            recursive_desired=False,
+                            answers=tuple(query.answers),
+                            authority=tuple(query.authority) + (cached_authority,)
+                        )
+                        com_tld_dns_socket.sendto(reply_message.encode(), addr)
                 else:
                     print_data(f"cache에 {message.questions}이 없습니다.")
                     if query.recursive_desired:  # recursive 요청 (사실 항상 이쪽으로 들어옴. local dns server는 항상 recursive 요청을 보냄)
