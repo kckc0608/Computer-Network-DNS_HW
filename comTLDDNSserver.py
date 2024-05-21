@@ -7,135 +7,68 @@ on 또는 off)으로 결정된다.
 """
 
 import os
-import socket
 import sys
-import threading
-import json
-from re import findall
 from message import Message
 from common import print_data
+from recursive_dns import RecursiveDns
 os.system("")
 
 
-def get_dns_info(raw_data):
-    for line in raw_data.split('\n'):
-        if line[0] in '# \n':
-            # 주석, 공백, 개행은 무시한다.
-            continue
+class ComTLDDns(RecursiveDns):
 
-        server_name, info = line.split('=')
-        host_info = findall(r'\[.*\]', info)
-        port_info = findall(r'\] [0-9]{1,5}', info)
-        if not host_info or not port_info:
-            raise Exception("config.txt 파일 내용이 잘못되었습니다.")
+    def process_query(self, recv_message, addr):
+        super().process_query(recv_message, addr)
+        cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)
+        print_data("캐시 검색 결과")
+        print_data((cached_for, cached_record, cached_type))
 
-        host_info = tuple(map(lambda x: x.strip(), host_info[0][1:-1].split(',')))
-        port_info = int(port_info[0][2:])
+        if cached_for:
+            if cached_for == recv_message.questions:
+                reply_message = Message(
+                    message_id=recv_message.message_id,
+                    query_flag=False,
+                    questions=recv_message.questions,
+                    recursive_desired=False,
+                    answers=tuple(recv_message.answers) + ((cached_for, cached_record, cached_type),),
+                    authority=tuple(recv_message.authority),
+                    path=tuple(recv_message.path)
+                )
+                self.dns_socket.sendto(reply_message.encode(), addr)
+            else:
+                if recv_message.recursive_desired and self.recursive_flag:
+                    "recursive 하게 대신 알아오기"
+                    pass
+                else:
+                    print_data("iterative 방식으로 authority 를 응답합니다.")
+                    reply_message = Message(
+                        message_id=recv_message.message_id,
+                        query_flag=False,
+                        questions=recv_message.questions,
+                        recursive_desired=False,
+                        answers=tuple(recv_message.answers),
+                        authority=tuple(recv_message.authority) + ((cached_for, cached_record, cached_type),),
+                        path=tuple(recv_message.path)
+                    )
+                    while cached_type != 'A':
+                        cached_for, cached_record, cached_type = self.find_question_in_cache(cached_record)
+                        reply_message.authority += ((cached_for, cached_record, cached_type),)
+                    self.dns_socket.sendto(reply_message.encode(), addr)
 
-        dns_info[server_name.strip()] = (host_info, port_info)
-
-
-def get_cache_info(cache_info, raw_data):
-    for line in raw_data.split('\n'):
-        if not line:
-            continue
-        if line[0] in '# \n':
-            # 주석, 공백, 개행은 무시한다.
-            continue
-
-        data = line.split(',')
-        if len(data) != 3:
-            print("cache.txt 형식이 잘못되었습니다.")
-            continue
-
-        record_host, record_target, record_type = map(lambda x: x.strip(), data)
-
-        if record_host not in cache_info:
-            cache_info[record_host] = dict()
-
-        cache_info[record_host][record_type] = record_target
-
-
-def process_query():
-
-    def find_question_in_cache(question):
-        with open('com_tld_dns_cache.txt', encoding="utf-8") as cache_file:
-            cache_info = dict()
-            cache_data = cache_file.read()
-            get_cache_info(cache_info, cache_data)
-            print_data(cache_info)
-
-            tokens = question.split('.')
-            for i in range(len(tokens)):
-                sub_question = ".".join(tokens[i:])
-                # 일단 RR 타입은 생각하지 말고, host name 만 생각해보자.
-                if sub_question in cache_info:
-                    print_data(f"{sub_question}을 캐시에서 찾았습니다.")
-                    if 'A' in cache_info[sub_question]:
-                        return sub_question, cache_info[sub_question]['A'], 'A'
-                    elif 'CNAME' in cache_info[sub_question]:
-                        return sub_question, cache_info[sub_question]['CNAME'], 'CANME'
-                    elif 'NS' in cache_info[sub_question]:
-                        return sub_question, cache_info[sub_question]['NS'], 'NS'
-
-            return None, None, None
-
-    with socket.socket(type=socket.SOCK_DGRAM) as com_tld_dns_socket:
-        com_tld_dns_socket.bind((host, port))
-
-        while True:
-            recv_data, addr = com_tld_dns_socket.recvfrom(1024)
-            message_data = json.loads(recv_data.decode())
-            message = Message(**message_data)
-
-            if message.query_flag:
-                print_data("쿼리를 수신했습니다.")
-                query = message
-                print_data(query)
-
-                cached_for, cached_record, cached_type = find_question_in_cache(message.questions)
-                print_data("캐시 검색 결과")
-                print_data((cached_for, cached_record, cached_type))
-
-                if cached_for:
-                    if cached_for == message.questions:
-                        reply_message = Message(
-                            message_id=query.message_id,
-                            query_flag=False,
-                            questions=query.questions,
-                            recursive_desired=False,
-                            answers=tuple(query.answers) + ((cached_for, cached_record, cached_type),),
-                            authority=tuple(query.authority)
-                        )
-                        com_tld_dns_socket.sendto(reply_message.encode(), addr)
-                    else:
-                        if query.recursive_desired and recursive_flag:
-                            "recursive 하게 대신 알아오기"
-                            pass
-                        else:
-                            print_data("iterative 방식으로 authority 를 응답합니다.")
-                            reply_message = Message(
-                                message_id=query.message_id,
-                                query_flag=False,
-                                questions=query.questions,
-                                recursive_desired=False,
-                                answers=tuple(query.answers),
-                                authority=tuple(query.authority) + ((cached_for, cached_record, cached_type),),
-                            )
-                            while cached_type != 'A':
-                                cached_for, cached_record, cached_type = find_question_in_cache(cached_record)
-                                reply_message.authority += ((cached_for, cached_record, cached_type),)
-                            com_tld_dns_socket.sendto(reply_message.encode(), addr)
-                else:  # 쿼리와 관련되어 요청을 보내볼 만한 서버를 아무것도 찾지 못함.
-                    print_data(f"cache에 {message.questions}이 없습니다.")
-                    print_data(f"com tld server 에 없는 쿼리는 처리할 수 없습니다.")
-
-            else:  # reply 수신
-                print_data("reply를 수신했습니다.")  # recursive 처리로 한다는 뜻
-                pass
+        else:  # 쿼리와 관련되어 요청을 보내볼 만한 서버를 아무것도 찾지 못함.
+            print_data(f"cache에 {recv_message.questions}이 없습니다.")
+            print_data(f"com tld server 에 없는 쿼리는 처리할 수 없습니다.")
+            reply_message = Message(
+                message_id=recv_message.message_id,
+                query_flag=False,
+                questions=recv_message.questions,
+                recursive_desired=False,
+                answers=tuple(recv_message.answers),
+                authority=tuple(recv_message.authority),
+                path=tuple(recv_message.path)
+            )
+            self.dns_socket.sendto(reply_message.encode(), addr)
 
 
-host = '127.0.0.1'
 if len(sys.argv) < 2:
     print("포트 정보가 필요합니다.")
     exit()
@@ -147,46 +80,8 @@ if not sys.argv[1].isnumeric():
     print("포트 번호는 숫자입니다.")
     exit()
 
-port = int(sys.argv[1])
 # 포트 번호 범위 체크 필요?
-dns_info = dict()
+port = int(sys.argv[1])
 
-with open('config.txt', encoding="utf-8") as f:
-    read_data = f.read()
-    get_dns_info(read_data)
-    print(dns_info)
-
-input_thread = threading.Thread(target=process_query)
-input_thread.daemon = True
-input_thread.start()
-
-recursive_flag = False
-while True:
-    try:
-        cmd = tuple(map(lambda x: x.strip(), input(">> ").strip().split()))
-
-        if cmd[0] == "exit":
-            exit(0)
-
-        elif cmd[0] == "cache":
-            # TODO : Print Cache of Root
-            pass
-
-        elif cmd[0] == "recursiveFlag":
-            if len(cmd) != 2:
-                print("명령어 형식이 잘못되었습니다.")
-            if cmd[1] == "on":
-                recursive_flag = True
-                print("recursive processing : ON")
-            elif cmd[1] == "off":
-                recursive_flag = False
-                print("recursive processing : OFF")
-            else:
-                print("명령어 형식이 잘못되었습니다. on/off 중 하나를 입력하세요.")
-
-        else:
-            print("존재하지 않는 명령어 입니다.")
-
-    except Exception as ex:
-        print("예외가 발생했습니다.")
-        print(ex)
+com_tld_dns_server = ComTLDDns(port, 'com_tld_dns_cache.txt', 'comTLD_dns_server')
+com_tld_dns_server.start()
