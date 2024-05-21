@@ -35,14 +35,12 @@ class LocalDns(Dns):
         self.root_dns_port = self.dns_info.get('root_dns_server')[1]
 
     def process_query(self, recv_message, addr):
-        self.print_data("test")
         super().process_query(recv_message, addr)
         self.client_port = addr[1]
-        self.print_data("test")
 
         cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)
         self.print_data((cached_for, cached_record, cached_type))
-        while cached_type != 'A':
+        while cached_for and cached_type != 'A':
             self.print_data((cached_for, cached_record, cached_type))
             cached_for, cached_record, cached_type = self.find_question_in_cache(cached_record)
 
@@ -82,7 +80,7 @@ class LocalDns(Dns):
         super().process_reply(recv_message, addr)
 
         cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)
-        while cached_type != 'A':
+        while cached_for and cached_type != 'A':
             cached_for, cached_record, cached_type = self.find_question_in_cache(cached_record)
 
         if recv_message.answers:

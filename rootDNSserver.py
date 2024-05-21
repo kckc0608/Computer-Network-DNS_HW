@@ -130,7 +130,7 @@ def process_query():
                             "recursive 과정으로 IP주소 알아오기"
                             pass
                         else:
-                            "TLD 정보는 캐시에 들어있기 때문에, 진작 보낼 수 있었어야 한다..?"
+                            "사실 com TLD 정보는 캐시에 들어있기 때문에, 진작 보낼 수 있었어야 한다."
                             reply_message = Message(
                                 message_id=query.message_id,
                                 query_flag=False,

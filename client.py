@@ -50,13 +50,16 @@ host = '127.0.0.1'
 port = int(sys.argv[1])
 # 포트 번호 범위 체크도 필요?
 dns_info = dict()
+
 try:
     with open('config.txt', encoding="utf-8") as f:
         read_data = f.read()
         get_dns_info(read_data)
         print(dns_info)
-except:
+
+except Exception as ex:
     print("config.txt 파일에서 데이터를 가져오는 중 오류가 발생했습니다.")
+    print(ex)
     exit()
 
 with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
@@ -83,12 +86,16 @@ with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
                     rcv_data = json.loads(rcv_data.decode())
                     reply = Message(**rcv_data)
                     print("reply를 받았습니다.")
-                    for question_for, answer_record, answer_type in reply.answers:
-                        print(f"{reply.questions} : {answer_record}")
+                    if reply.answers:
+                        for question_for, answer_record, answer_type in reply.answers:
+                            print(f"{reply.questions} : {answer_record}")
+                    else:
+                        print(f"{reply.questions}에 대한 IP주소를 찾지 못하였습니다.")
                     print(f"(via: {' -> '.join(reply.path)} )")
-                    print(reply.path)
+
                 else:
                     print("존재하지 않는 명령어입니다.")
+
             else:
                 if not cmd:
                     continue

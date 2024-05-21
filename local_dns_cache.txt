@@ -6,3 +6,4 @@ dns.comTLDDNSsolution.com , 111.112.113.44 , A
 xy.com , dns.xy.com , NS
 dns.xy.com , 111.112.113.114 , A
 www.xy.com , 100.101.102.103 , A
+api.xy.com , 100.101.102.104 , A

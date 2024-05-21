@@ -12,14 +12,6 @@ os.system("")
 class Dns:
     host = '127.0.0.1'
 
-    COLOR = {
-        "HEADER": "\033[95m",
-        "BLUE": "\033[94m",
-        "GREEN": "\033[92m",
-        "RED": "\033[91m",
-        "ENDC": "\033[0m",
-    }
-
     def __init__(self, port, cache_file_name, server_name):
         self.port = port
         self.cache_fine_name = cache_file_name
@@ -112,19 +104,6 @@ class Dns:
             self.load_cache()
             for item in self.dns_cache.items():
                 self.print_data(item)
-
-        elif cmd[0] == "recursiveFlag":
-            if len(cmd) != 2:
-                print("명령어 형식이 잘못되었습니다.")
-            if cmd[1] == "on":
-                recursive_flag = True
-                print("recursive processing : ON")
-            elif cmd[1] == "off":
-                recursive_flag = False
-                print("recursive processing : OFF")
-            else:
-                print("명령어 형식이 잘못되었습니다. on/off 중 하나를 입력하세요.")
-
         else:
             print("존재하지 않는 명령어 입니다.")
 
@@ -148,7 +127,6 @@ class Dns:
             return None, None, None
 
     def process_message(self):
-
         with socket.socket(type=socket.SOCK_DGRAM) as dns_socket:
             self.dns_socket = dns_socket
             self.dns_socket.bind((self.host, self.port))
@@ -173,9 +151,16 @@ class Dns:
         self.print_data(recv_message)
 
     def print_data(self, _data):
+        COLOR = {
+            "HEADER": "\033[95m",
+            "BLUE": "\033[94m",
+            "GREEN": "\033[92m",
+            "RED": "\033[91m",
+            "ENDC": "\033[0m",
+        }
         #  print(f"\u001B[s\u001B[A\u001B[999D\u001B[S\u001B[L", end="", flush=True)
         print(f"\u001B[999D\u001B[K", end="", flush=True)
-        print(self.COLOR["GREEN"], "[info] ", self.COLOR["ENDC"], end='', flush=True)
+        print(COLOR["GREEN"], "[info] ", COLOR["ENDC"], end='', flush=True)
         #  print(f"{_data}\u001B[u", end='', flush=True)
         print(f"{_data}\n", end='', flush=True)
         print(">> ", end='', flush=True)
