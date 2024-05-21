@@ -48,8 +48,7 @@ class CompanyDns(Dns):
             self.dns_socket.sendto(reply.encode(), addr)
 
         else:
-            # 일단 보내줄 데이터가 없으면 응답 X
-            pass
+            self.dns_socket.sendto(reply.encode(), addr)
 
 
 try:
