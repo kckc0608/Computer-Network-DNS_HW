@@ -79,11 +79,12 @@ with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
                     client_socket.sendto(query.encode(), (host, dns_port))
                     print("쿼리를 전송했습니다.")
 
-                    print("reply를 받았습니다.")
                     rcv_data, server_addr = client_socket.recvfrom(2048)
                     rcv_data = json.loads(rcv_data.decode())
                     reply = Message(**rcv_data)
-                    print(f"{reply.questions} : {reply.answers[0]}")
+                    print("reply를 받았습니다.")
+                    for question_for, answer_record, answer_type in reply.answers:
+                        print(f"{reply.questions} : {answer_record}")
                     print("Path 출력 (TODO)")
                 else:
                     print("존재하지 않는 명령어입니다.")

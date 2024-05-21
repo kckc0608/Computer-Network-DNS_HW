@@ -80,7 +80,6 @@ def process_query():
             cache_info = dict()
             cache_data = cache_file.read()
             get_cache_info(cache_info, cache_data)
-            print_data(cache_info)
 
             tokens = question.split('.')
             for i in range(len(tokens)):
@@ -98,7 +97,6 @@ def process_query():
             return None, None, None
 
     with socket.socket(type=socket.SOCK_DGRAM) as local_dns_socket:
-        query_table = dict()
         local_dns_socket.bind((host, port))
 
         while True:
@@ -122,12 +120,12 @@ def process_query():
 
                         print_data("캐싱된 answer를 전송합니다.")
                         reply_message = Message(
-                            message_id=query.message_id,
+                            message_id=recv_message.message_id,
                             query_flag=False,
-                            questions=query.questions,
+                            questions=recv_message.questions,
                             recursive_desired=False,
-                            answers=query.answers + (cached_for,),
-                            authority=query.authority
+                            answers=tuple(recv_message.answers) + ((cached_for, cached_record, cached_type),),
+                            authority=tuple(recv_message.authority)
                         )
                         local_dns_socket.sendto(reply_message.encode(), (host, client_port))
                     else:
@@ -137,6 +135,7 @@ def process_query():
                         while cached_type != 'A':
                             cached_for, cached_record, cached_type = find_question_in_cache(cached_record)
                         authority_port = ip_to_port[cached_record]
+                        print_data(f"authority port: {authority_port}")
                         local_dns_socket.sendto(query.encode(), (host, authority_port))
                 # 3. root dns 서버에 요청 보내기
                 else:
@@ -151,11 +150,13 @@ def process_query():
                 if recv_message.answers:
                     print_data("answers 가 들어있는 응답을 받았습니다.")
                     print_data(f"client port : {client_port}")
+                    print_data(f"{recv_message}")
 
                     # Caching
-                    save_data_to_file(' , '.join([str(recv_message.questions), str(recv_message.answers)]) + '\n', 'local_dns_cache.txt')
+                    for answer_for, answer_record, answer_record_type in recv_message.answers:
+                        assert recv_message.questions == answer_for
+                        save_data_to_file(' , '.join([answer_for, answer_record, answer_record_type]) + '\n', 'local_dns_cache.txt')
 
-                    print_data(f"{recv_message}")
                     local_dns_socket.sendto(recv_message.encode(), (host, client_port))
                 elif recv_message.authority:
                     print_data("authority 가 들어있는 응답을 받았습니다.")
@@ -163,7 +164,6 @@ def process_query():
 
                     # Caching
                     for auth_for, auth_record, auth_type in recv_message.authority:
-
                         save_data_to_file(' , '.join([auth_for, auth_record, auth_type]) + '\n','local_dns_cache.txt')
 
                     auth_for, auth_record, auth_type = find_question_in_cache(recv_message.questions)
@@ -171,9 +171,7 @@ def process_query():
                         auth_for, auth_record, auth_type = find_question_in_cache(auth_record)
 
                     # 이 과정을 거치면 auth_type = A 인 레코드를 얻을 수 있다고 가정함.
-                    #if authority_record_type == 'A':
                     print_data("authority server에 요청을 보냅니다.")
-
                     if auth_record not in ip_to_port:
                         print_data(ip_to_port)
                         raise Exception(f"IP 주소 {auth_record} 에 대한 포트 정보가 없습니다.")
@@ -182,14 +180,6 @@ def process_query():
                     query = recv_message
                     query.query_flag = True
                     local_dns_socket.sendto(recv_message.encode(), (host, authority_port))
-                    # else:
-                    #     print_data("authority server의 IP를 알아내기 위해 다시 요청을 보냅니다.")
-                    #     query_message = Message(
-                    #         message_id=query.message_id,
-                    #         query_flag=True,
-                    #         questions=authority_record_data,
-                    #         recursive_desired=True
-                    #     )
                 else:
                     print_data("호스트 이름에 대한 IP주소를 찾지 못했습니다.")
                     reply_message = Message(
@@ -197,8 +187,8 @@ def process_query():
                         query_flag=False,
                         questions=query.questions,
                         recursive_desired=False,
-                        answers=query.answers,
-                        authority=query.authority
+                        answers=tuple(query.answers),
+                        authority=tuple(query.authority)
                     )
                     local_dns_socket.sendto(reply_message.encode(), (host, client_port))
 
