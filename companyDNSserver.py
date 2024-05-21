@@ -47,6 +47,8 @@ def process_query():
             data = json.loads(data.decode())
             recv_message = Message(**data)
 
+            recv_message.path = tuple(recv_message.path) + (f'{company_name}.com DNS server',)
+
             print_data("메세지를 수신했습니다.")
             print_data(recv_message)
 
@@ -61,7 +63,8 @@ def process_query():
                 query_flag=False,
                 recursive_desired=recv_message.recursive_desired,
                 answers=tuple(recv_message.answers),
-                authority=tuple(recv_message.authority)
+                authority=tuple(recv_message.authority),
+                path=tuple(recv_message.path)
             )
             if reply.questions in dns_cache:
                 print_data(f"{reply.questions}을 캐시에서 찾았습니다.")
@@ -111,6 +114,8 @@ try:
         domain_info_file_name = domain_info_file_name[1:]
     if domain_info_file_name[-1] == '>':
         domain_info_file_name = domain_info_file_name[:-1]
+
+    company_name = domain_info_file_name.split('.')[0]
 
     dns_cache = dict()
 

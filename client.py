@@ -85,7 +85,8 @@ with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
                     print("reply를 받았습니다.")
                     for question_for, answer_record, answer_type in reply.answers:
                         print(f"{reply.questions} : {answer_record}")
-                    print("Path 출력 (TODO)")
+                    print(f"(via: {' -> '.join(reply.path)} )")
+                    print(reply.path)
                 else:
                     print("존재하지 않는 명령어입니다.")
             else:

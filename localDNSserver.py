@@ -103,6 +103,7 @@ def process_query():
             data, addr = local_dns_socket.recvfrom(1024)
             json_data = json.loads(data.decode())
             recv_message = Message(**json_data)
+            recv_message.path = tuple(recv_message.path) + ('local DNS server',)
 
             if recv_message.query_flag:
                 print_data("query를 수신했습니다.")
@@ -123,9 +124,10 @@ def process_query():
                             message_id=recv_message.message_id,
                             query_flag=False,
                             questions=recv_message.questions,
-                            recursive_desired=False,
+                            recursive_desired=recv_message.recursive_desired,
                             answers=tuple(recv_message.answers) + ((cached_for, cached_record, cached_type),),
-                            authority=tuple(recv_message.authority)
+                            authority=tuple(recv_message.authority),
+                            path=tuple(recv_message.path)
                         )
                         local_dns_socket.sendto(reply_message.encode(), (host, client_port))
                     else:
@@ -188,7 +190,8 @@ def process_query():
                         questions=query.questions,
                         recursive_desired=False,
                         answers=tuple(query.answers),
-                        authority=tuple(query.authority)
+                        authority=tuple(query.authority),
+                        path=tuple(recv_message.path)
                     )
                     local_dns_socket.sendto(reply_message.encode(), (host, client_port))
 
