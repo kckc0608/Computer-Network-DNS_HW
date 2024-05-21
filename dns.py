@@ -25,10 +25,12 @@ class Dns:
         self.cache_fine_name = cache_file_name
         self.server_name = server_name
         self.dns_info = dict()
+        self.dns_cache = dict()
         self.ip_to_port = dict()
         self.dns_socket = None
 
         self.load_config()
+        self.load_cache()
 
     def start(self):
         try:
@@ -78,13 +80,38 @@ class Dns:
             self.print_data(self.dns_info)
             self.print_data(self.ip_to_port)
 
+    def load_cache(self):
+        self.print_data("캐시를 로드합니다.")
+        with open(self.cache_fine_name, encoding="utf-8") as cache_file:
+            raw_data = cache_file.read()
+            for line in raw_data.split('\n'):
+                if not line:
+                    continue
+
+                if line[0] in '# \n':
+                    # 주석, 공백, 개행은 무시한다.
+                    continue
+
+                data = line.split(',')
+                if len(data) != 3:
+                    print("cache.txt 형식이 잘못되었습니다.")
+                    continue
+
+                record_host, record_target, record_type = map(lambda x: x.strip(), data)
+
+                if record_host not in self.dns_cache:
+                    self.dns_cache[record_host] = dict()
+
+                self.dns_cache[record_host][record_type] = record_target
+
     def process_command(self, cmd):
         if cmd[0] == "exit":
             exit(0)
 
         elif cmd[0] == "cache":
-            # TODO : Print Cache of Root
-            pass
+            self.load_cache()
+            for item in self.dns_cache.items():
+                self.print_data(item)
 
         elif cmd[0] == "recursiveFlag":
             if len(cmd) != 2:
@@ -101,46 +128,22 @@ class Dns:
         else:
             print("존재하지 않는 명령어 입니다.")
 
-    def get_cache_info(self, cache_info, raw_data):
-        for line in raw_data.split('\n'):
-            if not line:
-                continue
-
-            if line[0] in '# \n':
-                # 주석, 공백, 개행은 무시한다.
-                continue
-
-            data = line.split(',')
-            if len(data) != 3:
-                print("cache.txt 형식이 잘못되었습니다.")
-                continue
-
-            record_host, record_target, record_type = map(lambda x: x.strip(), data)
-
-            if record_host not in cache_info:
-                cache_info[record_host] = dict()
-
-            cache_info[record_host][record_type] = record_target
-
     def find_question_in_cache(self, question):
         with open(self.cache_fine_name, encoding="utf-8") as cache_file:
-            cache_info = dict()
-            cache_data = cache_file.read()
-            self.get_cache_info(cache_info, cache_data)
-            self.print_data(cache_info)
+            self.load_cache()
 
             tokens = question.split('.')
             for i in range(len(tokens)):
                 sub_question = ".".join(tokens[i:])
                 # 일단 RR 타입은 생각하지 말고, host name 만 생각해보자.
-                if sub_question in cache_info:
+                if sub_question in self.dns_cache:
                     self.print_data(f"{sub_question}을 캐시에서 찾았습니다.")
-                    if 'A' in cache_info[sub_question]:
-                        return sub_question, cache_info[sub_question]['A'], 'A'
-                    elif 'CNAME' in cache_info[sub_question]:
-                        return sub_question, cache_info[sub_question]['CNAME'], 'CANME'
-                    elif 'NS' in cache_info[sub_question]:
-                        return sub_question, cache_info[sub_question]['NS'], 'NS'
+                    if 'A' in self.dns_cache[sub_question]:
+                        return sub_question, self.dns_cache[sub_question]['A'], 'A'
+                    elif 'CNAME' in self.dns_cache[sub_question]:
+                        return sub_question, self.dns_cache[sub_question]['CNAME'], 'CANME'
+                    elif 'NS' in self.dns_cache[sub_question]:
+                        return sub_question, self.dns_cache[sub_question]['NS'], 'NS'
 
             return None, None, None
 

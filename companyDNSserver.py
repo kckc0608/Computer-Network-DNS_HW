@@ -6,90 +6,50 @@
 """
 
 import os
-import socket
 import sys
-import threading
-from re import findall
 from common import print_data
 from message import Message
-import json
+from dns import Dns
 os.system("")
 
 
-def get_cache_info(cache_info, raw_data):
-    for line in raw_data.split('\n'):
-        if not line:
-            continue
-        if line[0] in '# \n':
-            # 주석, 공백, 개행은 무시한다.
-            continue
+class CompanyDns(Dns):
 
-        data = line.split(',')
-        if len(data) != 3:
-            print("cache.txt 형식이 잘못되었습니다.")
-            continue
-
-        record_host, record_target, record_type = map(lambda x: x.strip(), data)
-
-        if record_host not in cache_info:
-            cache_info[record_host] = dict()
-
-        cache_info[record_host][record_type] = record_target
-
-
-def process_query():
-
-    with socket.socket(type=socket.SOCK_DGRAM) as company_dns_socket:
-        company_dns_socket.bind((host, port))
-
-        while True:
-            data, addr = company_dns_socket.recvfrom(1024)
-            data = json.loads(data.decode())
-            recv_message = Message(**data)
-
-            recv_message.path = tuple(recv_message.path) + (f'{company_name}.com DNS server',)
-
-            print_data("메세지를 수신했습니다.")
-            print_data(recv_message)
-
-            if not recv_message.query_flag:
-                # company dns server는 최종 dns 서버 이므로 쿼리를 보낼 일이 없다.
-                # 따라서 reply는 무시한다.
-                continue
-
-            reply = Message(
-                message_id=recv_message.message_id,
-                questions=recv_message.questions,
-                query_flag=False,
-                recursive_desired=recv_message.recursive_desired,
-                answers=tuple(recv_message.answers),
-                authority=tuple(recv_message.authority),
-                path=tuple(recv_message.path)
-            )
-            if reply.questions in dns_cache:
-                print_data(f"{reply.questions}을 캐시에서 찾았습니다.")
-                if 'A' in dns_cache[reply.questions]:
-                    reply.answers += ((reply.questions, dns_cache[reply.questions]['A'], 'A'),)
-                else:
-                    question = reply.questions
-                    while 'A' not in dns_cache[question]:
-                        if 'CNAME' in dns_cache[question]:
-                            question = dns_cache[question]['CNAME']
-                        elif 'NS' in dns_cache[question]:
-                            question = dns_cache[question]['NS']
-                        if question not in dns_cache:
-                            print_data("A 레코드 정보를 찾지 못했습니다.")
-                            question = None
-                            break
-
-                    if question:
-                        reply.answers += ((reply.questions, dns_cache[question]['A'], 'A'),)
-
-                company_dns_socket.sendto(reply.encode(), addr)
-
+    def process_query(self, recv_message, addr):
+        super().process_query(recv_message, addr)
+        reply = Message(
+            message_id=recv_message.message_id,
+            questions=recv_message.questions,
+            query_flag=False,
+            recursive_desired=recv_message.recursive_desired,
+            answers=tuple(recv_message.answers),
+            authority=tuple(recv_message.authority),
+            path=tuple(recv_message.path)
+        )
+        if reply.questions in self.dns_cache:
+            print_data(f"{reply.questions}을 캐시에서 찾았습니다.")
+            if 'A' in self.dns_cache[reply.questions]:
+                reply.answers += ((reply.questions, self.dns_cache[reply.questions]['A'], 'A'),)
             else:
-                # 일단 보내줄 데이터가 없으면 응답 X
-                pass
+                question = reply.questions
+                while 'A' not in self.dns_cache[question]:
+                    if 'CNAME' in self.dns_cache[question]:
+                        question = self.dns_cache[question]['CNAME']
+                    elif 'NS' in self.dns_cache[question]:
+                        question = self.dns_cache[question]['NS']
+                    if question not in self.dns_cache:
+                        print_data("A 레코드 정보를 찾지 못했습니다.")
+                        question = None
+                        break
+
+                if question:
+                    reply.answers += ((reply.questions, self.dns_cache[question]['A'], 'A'),)
+
+            self.dns_socket.sendto(reply.encode(), addr)
+
+        else:
+            # 일단 보내줄 데이터가 없으면 응답 X
+            pass
 
 
 try:
@@ -117,26 +77,8 @@ try:
 
     company_name = domain_info_file_name.split('.')[0]
 
-    dns_cache = dict()
-
-    with open(domain_info_file_name, encoding="utf-8") as f:
-        read_data = f.read()
-        get_cache_info(dns_cache, read_data)
-        print(dns_cache)
-
-    input_thread = threading.Thread(target=process_query)
-    input_thread.daemon = True
-    input_thread.start()
-
-    while True:
-        cmd = input(">> ")
-        print(cmd)
-
-        if cmd == "exit":
-            exit(0)
-
-        elif cmd == "cache":
-            pass
+    company_dns_server = CompanyDns(port, server_name=company_name, cache_file_name=domain_info_file_name)
+    company_dns_server.start()
 
 except Exception as ex:
     print(ex)
