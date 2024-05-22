@@ -103,8 +103,9 @@ class Dns:
 
         elif cmd[0] == "cache":
             self.load_cache()
-            for item in self.dns_cache.items():
-                self.print_data(item)
+            for key, item in self.dns_cache.items():
+                for record_type, record_value in item.items():
+                    self.print_data(f"{key} : {record_value} ({record_type})")
         else:
             print("존재하지 않는 명령어 입니다.")
 
@@ -166,9 +167,7 @@ class Dns:
             "RED": "\033[91m",
             "ENDC": "\033[0m",
         }
-        #  print(f"\u001B[s\u001B[A\u001B[999D\u001B[S\u001B[L", end="", flush=True)
         print(f"\u001B[999D\u001B[K", end="", flush=True)
         print(COLOR["GREEN"], "[info] ", COLOR["ENDC"], end='', flush=True)
-        #  print(f"{_data}\u001B[u", end='', flush=True)
         print(f"{_data}\n", end='', flush=True)
         print(">> ", end='', flush=True)

@@ -12,8 +12,9 @@ class RecursiveDns(Dns):
 
         elif cmd[0] == "cache":
             self.load_cache()
-            for item in self.dns_cache.items():
-                self.print_data(item)
+            for key, item in self.dns_cache.items():
+                for record_type, record_value in item.items():
+                    self.print_data(f"{key} : {record_value} ({record_type})")
 
         elif cmd[0] == "recursiveFlag":
             if len(cmd) != 2:
