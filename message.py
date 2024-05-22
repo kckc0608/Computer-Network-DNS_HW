@@ -8,6 +8,7 @@ class Message:
                  questions,
                  query_flag,
                  recursive_desired,
+                 recursive_available,
                  answers=tuple(),
                  authority=tuple(),
                  path=tuple()):
@@ -15,9 +16,10 @@ class Message:
         self.questions = questions
         self.query_flag = query_flag
         self.recursive_desired = recursive_desired
+        self.recursive_available = recursive_available
         self.answers = answers
         self.authority = authority
-        self.path =path
+        self.path = path
 
     def encode(self):
         return json.dumps(self.__dict__, ensure_ascii=False).encode()

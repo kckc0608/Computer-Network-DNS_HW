@@ -64,6 +64,7 @@ except Exception as ex:
 
 with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
     client_socket.bind((host, port))
+    query_id = 1
     while True:
         try:
             cmd = list(map(lambda x: x.strip(), input(">> ").split()))
@@ -72,9 +73,10 @@ with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
                     query_host = cmd[1]
 
                     query = Message(
-                        message_id=1,
+                        message_id=query_id,
                         query_flag=True,
                         recursive_desired=False,
+                        recursive_available=False,
                         questions=query_host
                     )
 
@@ -92,6 +94,8 @@ with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
                     else:
                         print(f"{reply.questions}에 대한 IP주소를 찾지 못하였습니다.")
                     print(f"(via: {' -> '.join(reply.path)} )")
+
+                    query_id += 1
 
                 else:
                     print("존재하지 않는 명령어입니다.")

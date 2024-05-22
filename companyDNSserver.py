@@ -22,6 +22,7 @@ class CompanyDns(Dns):
             questions=recv_message.questions,
             query_flag=False,
             recursive_desired=recv_message.recursive_desired,
+            recursive_available=False,
             answers=tuple(recv_message.answers),
             authority=tuple(recv_message.authority),
             path=tuple(recv_message.path)

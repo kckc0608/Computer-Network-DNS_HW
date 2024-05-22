@@ -16,7 +16,7 @@ os.system("")
 
 class ComTLDDns(RecursiveDns):
 
-    def process_query(self, recv_message, addr):
+    def process_query(self, recv_message: Message, addr):
         super().process_query(recv_message, addr)
         cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)
         print_data("캐시 검색 결과")
@@ -29,15 +29,37 @@ class ComTLDDns(RecursiveDns):
                     query_flag=False,
                     questions=recv_message.questions,
                     recursive_desired=False,
+                    recursive_available=self.recursive_flag,
                     answers=tuple(recv_message.answers) + ((cached_for, cached_record, cached_type),),
                     authority=tuple(recv_message.authority),
                     path=tuple(recv_message.path)
                 )
                 self.dns_socket.sendto(reply_message.encode(), addr)
             else:
-                if recv_message.recursive_desired and self.recursive_flag:
+                if recv_message.recursive_desired and (self.recursive_flag or recv_message.recursive_available):
                     "recursive 하게 대신 알아오기"
-                    pass
+                    "root 서버가 recursive_available 이라면, 그 recursive flag 와 별개로 recursive 처리한다."
+                    query_message = Message(
+                        message_id=recv_message.message_id,
+                        query_flag=True,
+                        questions=recv_message.questions,
+                        recursive_desired=True,
+                        recursive_available=self.recursive_flag,
+                        answers=tuple(recv_message.answers),
+                        authority=tuple(recv_message.authority),
+                        path=tuple(recv_message.path)
+                    )
+
+                    while cached_type and cached_type != 'A':
+                        cached_for, cached_record, cached_type = self.find_question_in_cache(cached_record)
+
+                    self.print_data("authority server에 요청을 보냅니다.")
+                    if cached_record not in self.ip_to_port:
+                        self.print_data(self.ip_to_port)
+                        raise Exception(f"IP 주소 {cached_record} 에 대한 포트 정보가 없습니다.")
+
+                    authority_port = self.ip_to_port[cached_record]
+                    self.dns_socket.sendto(query_message.encode(), (self.host, authority_port))
                 else:
                     print_data("iterative 방식으로 authority 를 응답합니다.")
                     reply_message = Message(
@@ -45,6 +67,7 @@ class ComTLDDns(RecursiveDns):
                         query_flag=False,
                         questions=recv_message.questions,
                         recursive_desired=False,
+                        recursive_available=self.recursive_flag,
                         answers=tuple(recv_message.answers),
                         authority=tuple(recv_message.authority) + ((cached_for, cached_record, cached_type),),
                         path=tuple(recv_message.path)
@@ -56,12 +79,12 @@ class ComTLDDns(RecursiveDns):
 
         else:  # 쿼리와 관련되어 요청을 보내볼 만한 서버를 아무것도 찾지 못함.
             print_data(f"cache에 {recv_message.questions}이 없습니다.")
-            print_data(f"com tld server 에 없는 쿼리는 처리할 수 없습니다.")
             reply_message = Message(
                 message_id=recv_message.message_id,
                 query_flag=False,
                 questions=recv_message.questions,
                 recursive_desired=False,
+                recursive_available=self.recursive_flag,
                 answers=tuple(recv_message.answers),
                 authority=tuple(recv_message.authority),
                 path=tuple(recv_message.path)

@@ -19,7 +19,8 @@ class Dns:
         self.dns_info = dict()
         self.dns_cache = dict()
         self.ip_to_port = dict()
-        self.dns_socket = None
+        self.msg_id_table = dict()
+        self.dns_socket: socket.socket
 
         self.load_config()
         self.load_cache()
@@ -108,23 +109,22 @@ class Dns:
             print("존재하지 않는 명령어 입니다.")
 
     def find_question_in_cache(self, question):
-        with open(self.cache_fine_name, encoding="utf-8") as cache_file:
-            self.load_cache()
+        self.load_cache()
 
-            tokens = question.split('.')
-            for i in range(len(tokens)):
-                sub_question = ".".join(tokens[i:])
-                # 일단 RR 타입은 생각하지 말고, host name 만 생각해보자.
-                if sub_question in self.dns_cache:
-                    self.print_data(f"{sub_question}을 캐시에서 찾았습니다.")
-                    if 'A' in self.dns_cache[sub_question]:
-                        return sub_question, self.dns_cache[sub_question]['A'], 'A'
-                    elif 'CNAME' in self.dns_cache[sub_question]:
-                        return sub_question, self.dns_cache[sub_question]['CNAME'], 'CANME'
-                    elif 'NS' in self.dns_cache[sub_question]:
-                        return sub_question, self.dns_cache[sub_question]['NS'], 'NS'
+        tokens = question.split('.')
+        for i in range(len(tokens)):
+            sub_question = ".".join(tokens[i:])
+            # 일단 RR 타입은 생각하지 말고, host name 만 생각해보자.
+            if sub_question in self.dns_cache:
+                self.print_data(f"{sub_question}을 캐시에서 찾았습니다.")
+                if 'A' in self.dns_cache[sub_question]:
+                    return sub_question, self.dns_cache[sub_question]['A'], 'A'
+                elif 'CNAME' in self.dns_cache[sub_question]:
+                    return sub_question, self.dns_cache[sub_question]['CNAME'], 'CANME'
+                elif 'NS' in self.dns_cache[sub_question]:
+                    return sub_question, self.dns_cache[sub_question]['NS'], 'NS'
 
-            return None, None, None
+        return None, None, None
 
     def process_message(self):
         with socket.socket(type=socket.SOCK_DGRAM) as dns_socket:
@@ -136,6 +136,9 @@ class Dns:
                 message_data = json.loads(recv_data.decode())
                 recv_message = Message(**message_data)
                 recv_message.path = tuple(recv_message.path) + (self.server_name,)
+
+                if recv_message.message_id not in self.msg_id_table:
+                    self.msg_id_table[recv_message.message_id] = addr
 
                 if recv_message.query_flag:
                     self.process_query(recv_message, addr)

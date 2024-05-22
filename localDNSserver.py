@@ -31,12 +31,10 @@ class LocalDns(Dns):
 
     def __init__(self, port, cache_file_name, server_name):
         super().__init__(port, cache_file_name, server_name)
-        self.client_port = None
         self.root_dns_port = self.dns_info.get('root_dns_server')[1]
 
-    def process_query(self, recv_message, addr):
+    def process_query(self, recv_message: Message, addr):
         super().process_query(recv_message, addr)
-        self.client_port = addr[1]
 
         cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)
         self.print_data((cached_for, cached_record, cached_type))
@@ -55,11 +53,12 @@ class LocalDns(Dns):
                     query_flag=False,
                     questions=recv_message.questions,
                     recursive_desired=recv_message.recursive_desired,
+                    recursive_available=False,
                     answers=tuple(recv_message.answers) + ((cached_for, cached_record, cached_type),),
                     authority=tuple(recv_message.authority),
                     path=tuple(recv_message.path)
                 )
-                self.dns_socket.sendto(reply_message.encode(), (self.host, self.client_port))
+                self.dns_socket.sendto(reply_message.encode(), self.msg_id_table[recv_message.message_id])
             else:
                 self.print_data("캐싱된 authority에 쿼리를 재전송합니다.")
                 query = recv_message
@@ -76,7 +75,7 @@ class LocalDns(Dns):
             self.print_data(f"{query.questions} 도메인 정보가 캐시에 없습니다. root에 쿼리를 보냅니다.")
             self.dns_socket.sendto(query.encode(), (self.host, self.root_dns_port))
 
-    def process_reply(self, recv_message, addr):
+    def process_reply(self, recv_message: Message, addr):
         super().process_reply(recv_message, addr)
 
         cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)
@@ -85,7 +84,7 @@ class LocalDns(Dns):
 
         if recv_message.answers:
             self.print_data("answers 가 들어있는 응답을 받았습니다.")
-            self.print_data(f"client port : {self.client_port}")
+            self.print_data(f"client port : {self.msg_id_table[recv_message.message_id]}")
             self.print_data(f"{recv_message}")
 
             # Caching
@@ -94,7 +93,7 @@ class LocalDns(Dns):
                 save_data_to_file(' , '.join([answer_for, answer_record, answer_record_type]) + '\n',
                                   'local_dns_cache.txt')
 
-            self.dns_socket.sendto(recv_message.encode(), (self.host, self.client_port))
+            self.dns_socket.sendto(recv_message.encode(), self.msg_id_table[recv_message.message_id])
         elif recv_message.authority:
             self.print_data("authority 가 들어있는 응답을 받았습니다.")
             self.print_data(recv_message.authority)
@@ -124,11 +123,12 @@ class LocalDns(Dns):
                 query_flag=False,
                 questions=recv_message.questions,
                 recursive_desired=False,
+                recursive_available=False,
                 answers=tuple(recv_message.answers),
                 authority=tuple(recv_message.authority),
                 path=tuple(recv_message.path)
             )
-            self.dns_socket.sendto(reply_message.encode(), (self.host, self.client_port))
+            self.dns_socket.sendto(reply_message.encode(), self.msg_id_table[recv_message.message_id])
 
 
 try:
@@ -144,9 +144,9 @@ try:
         exit()
 
     # 포트 번호 범위 체크 필요?
-    port = int(sys.argv[1])
+    local_dns_port = int(sys.argv[1])
 
-    local_dns_server = LocalDns(port, server_name='local_dns_server', cache_file_name='local_dns_cache.txt')
+    local_dns_server = LocalDns(local_dns_port, server_name='local_dns_server', cache_file_name='local_dns_cache.txt')
     local_dns_server.start()
 
 except Exception as ex:
