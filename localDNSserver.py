@@ -23,7 +23,6 @@ import os
 import sys
 from dns import Dns
 from message import Message
-from common import save_data_to_file
 os.system("")
 
 
@@ -90,8 +89,7 @@ class LocalDns(Dns):
             # Caching
             for answer_for, answer_record, answer_record_type in recv_message.answers:
                 assert recv_message.questions == answer_for
-                save_data_to_file(' , '.join([answer_for, answer_record, answer_record_type]) + '\n',
-                                  'local_dns_cache.txt')
+                self.save_record_into_cache((answer_for, answer_record, answer_record_type))
 
             self.dns_socket.sendto(recv_message.encode(), self.msg_id_table[recv_message.message_id])
         elif recv_message.authority:
@@ -100,7 +98,7 @@ class LocalDns(Dns):
 
             # Caching
             for auth_for, auth_record, auth_type in recv_message.authority:
-                save_data_to_file(' , '.join([auth_for, auth_record, auth_type]) + '\n', 'local_dns_cache.txt')
+                self.save_record_into_cache((auth_for, auth_record, auth_type))
 
             auth_for, auth_record, auth_type = self.find_question_in_cache(recv_message.questions)
             while auth_type != 'A':

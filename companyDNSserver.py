@@ -7,7 +7,6 @@
 
 import os
 import sys
-from common import print_data
 from message import Message
 from dns import Dns
 os.system("")
@@ -28,7 +27,7 @@ class CompanyDns(Dns):
             path=tuple(recv_message.path)
         )
         if reply.questions in self.dns_cache:
-            print_data(f"{reply.questions}을 캐시에서 찾았습니다.")
+            self.print_data(f"{reply.questions}을 캐시에서 찾았습니다.")
             if 'A' in self.dns_cache[reply.questions]:
                 reply.answers += ((reply.questions, self.dns_cache[reply.questions]['A'], 'A'),)
             else:
@@ -39,7 +38,7 @@ class CompanyDns(Dns):
                     elif 'NS' in self.dns_cache[question]:
                         question = self.dns_cache[question]['NS']
                     if question not in self.dns_cache:
-                        print_data("A 레코드 정보를 찾지 못했습니다.")
+                        self.print_data("A 레코드 정보를 찾지 못했습니다.")
                         question = None
                         break
 

@@ -14,7 +14,7 @@ class Dns:
 
     def __init__(self, port, cache_file_name, server_name):
         self.port = port
-        self.cache_fine_name = cache_file_name
+        self.cache_file_name = cache_file_name
         self.server_name = server_name
         self.dns_info = dict()
         self.dns_cache = dict()
@@ -75,7 +75,7 @@ class Dns:
 
     def load_cache(self):
         self.print_data("캐시를 로드합니다.")
-        with open(self.cache_fine_name, encoding="utf-8") as cache_file:
+        with open(self.cache_file_name, encoding="utf-8") as cache_file:
             raw_data = cache_file.read()
             for line in raw_data.split('\n'):
                 if not line:
@@ -152,6 +152,11 @@ class Dns:
     def process_reply(self, recv_message, addr):
         self.print_data("reply 를 받았습니다.")
         self.print_data(recv_message)
+
+    def save_record_into_cache(self, record):
+        record_data = ' , '.join(record) + '\n'
+        with open(self.cache_file_name, 'a', encoding="utf-8") as cache_file:
+            cache_file.write(record_data)
 
     def print_data(self, _data):
         COLOR = {
