@@ -37,15 +37,9 @@ class LocalDns(Dns):
 
         cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)
         self.print_data((cached_for, cached_record, cached_type))
-        while cached_for and cached_type != 'A':
-            self.print_data((cached_for, cached_record, cached_type))
-            cached_for, cached_record, cached_type = self.find_question_in_cache(cached_record)
 
         if cached_for:
             if recv_message.questions == cached_for:
-                while cached_type != 'A':
-                    cached_for, cached_record, cached_type = self.find_question_in_cache(cached_record)
-
                 self.print_data("캐싱된 answer를 전송합니다.")
                 reply_message = Message(
                     message_id=recv_message.message_id,
@@ -53,10 +47,17 @@ class LocalDns(Dns):
                     questions=recv_message.questions,
                     recursive_desired=recv_message.recursive_desired,
                     recursive_available=False,
-                    answers=tuple(recv_message.answers) + ((cached_for, cached_record, cached_type),),
+                    answers=tuple(recv_message.answers),
                     authority=tuple(recv_message.authority),
                     path=tuple(recv_message.path)
                 )
+
+                while cached_type and cached_type != 'A':
+                    reply_message.answers += ((cached_for, cached_record, cached_type),)
+                    cached_for, cached_record, cached_type = self.find_question_in_cache(cached_record)
+
+                reply_message.answers += ((cached_for, cached_record, cached_type),)
+                self.print_data(reply_message)
                 self.dns_socket.sendto(reply_message.encode(), self.msg_id_table[recv_message.message_id])
             else:
                 self.print_data("캐싱된 authority에 쿼리를 재전송합니다.")
@@ -88,7 +89,6 @@ class LocalDns(Dns):
 
             # Caching
             for answer_for, answer_record, answer_record_type in recv_message.answers:
-                assert recv_message.questions == answer_for
                 self.save_record_into_cache((answer_for, answer_record, answer_record_type))
 
             self.dns_socket.sendto(recv_message.encode(), self.msg_id_table[recv_message.message_id])

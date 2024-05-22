@@ -90,7 +90,7 @@ with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
                     print("reply를 받았습니다.")
                     if reply.answers:
                         for question_for, answer_record, answer_type in reply.answers:
-                            print(f"{reply.questions} : {answer_record}")
+                            print(f"{question_for} : {answer_record}")
                     else:
                         print(f"{reply.questions}에 대한 IP주소를 찾지 못하였습니다.")
                     print(f"(via: {' -> '.join(reply.path)} )")

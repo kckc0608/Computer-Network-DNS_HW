@@ -28,25 +28,23 @@ class CompanyDns(Dns):
         )
         if reply.questions in self.dns_cache:
             self.print_data(f"{reply.questions}을 캐시에서 찾았습니다.")
-            if 'A' in self.dns_cache[reply.questions]:
-                reply.answers += ((reply.questions, self.dns_cache[reply.questions]['A'], 'A'),)
-            else:
-                question = reply.questions
-                while 'A' not in self.dns_cache[question]:
-                    if 'CNAME' in self.dns_cache[question]:
-                        question = self.dns_cache[question]['CNAME']
-                    elif 'NS' in self.dns_cache[question]:
-                        question = self.dns_cache[question]['NS']
-                    if question not in self.dns_cache:
-                        self.print_data("A 레코드 정보를 찾지 못했습니다.")
-                        question = None
-                        break
+            question = reply.questions
+            while 'A' not in self.dns_cache[question]:
+                if question not in self.dns_cache:
+                    self.print_data("A 레코드 정보를 찾지 못했습니다.")
+                    question = None
+                    break
+                if 'CNAME' in self.dns_cache[question]:
+                    reply.answers += ((question, self.dns_cache[question]['CNAME'], 'CNAME'),)
+                    question = self.dns_cache[question]['CNAME']
+                elif 'NS' in self.dns_cache[question]:
+                    reply.answers += ((question, self.dns_cache[question]['NS'], 'NS'),)
+                    question = self.dns_cache[question]['NS']
 
-                if question:
-                    reply.answers += ((reply.questions, self.dns_cache[question]['A'], 'A'),)
+            if question:
+                reply.answers += ((question, self.dns_cache[question]['A'], 'A'),)
 
             self.dns_socket.sendto(reply.encode(), addr)
-
         else:
             self.dns_socket.sendto(reply.encode(), addr)
 
