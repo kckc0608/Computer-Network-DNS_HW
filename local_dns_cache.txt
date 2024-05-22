@@ -8,3 +8,5 @@ www.xy.com , machine49.xy.com , CNAME
 machine49.xy.com , 100.101.102.103 , A
 api.xy.com , machine49.xy.com , CNAME
 machine49.xy.com , 100.101.102.103 , A
+ftp.xy.com , machine49.xy.com , CNAME
+machine49.xy.com , 100.101.102.103 , A

@@ -17,22 +17,26 @@ from message import Message
 from re import findall
 
 
-def get_dns_info(raw_data):
-    for line in raw_data.split('\n'):
-        if not line or line[0] in '# \n':
-            # 주석, 공백, 개행은 무시한다.
-            continue
+def get_local_dns_info(local_dns_server_name):
+    with open('config.txt', encoding="utf-8") as f:
+        raw_data = f.read()
+        for line in raw_data.split('\n'):
+            if not line or line[0] in '# \n':
+                # 주석, 공백, 개행은 무시한다.
+                continue
 
-        server_name, info = line.split('=')
-        host_info = findall(r'\[.*\]', info)
-        port_info = findall(r'\] [0-9]{1,5}', info)
-        if not host_info or not port_info:
-            raise Exception("config.txt 파일 내용이 잘못되었습니다.")
+            server_name, info = line.split('=')
+            if server_name.strip() == local_dns_server_name:  # local dns 정보만 읽어온다.
+                host_info = findall(r'\[.*\]', info)
+                port_info = findall(r'\] [0-9]{1,5}', info)
+                if not host_info or not port_info:
+                    raise Exception("config.txt 파일 내용이 잘못되었습니다.")
 
-        host_info = tuple(map(lambda x: x.strip(), host_info[0][1:-1].split(',')))
-        port_info = int(port_info[0][2:])
+                host_info = tuple(map(lambda x: x.strip(), host_info[0][1:-1].split(',')))
+                port_info = int(port_info[0][2:])
 
-        dns_info[server_name.strip()] = (host_info, port_info)
+                dns_info[server_name.strip()] = (host_info, port_info)
+                break
 
 
 if len(sys.argv) < 2:
@@ -52,10 +56,8 @@ port = int(sys.argv[1])
 dns_info = dict()
 
 try:
-    with open('config.txt', encoding="utf-8") as f:
-        read_data = f.read()
-        get_dns_info(read_data)
-        print(dns_info)
+    local_dns_server_name = 'local_dns_server'
+    get_local_dns_info(local_dns_server_name)
 
 except Exception as ex:
     print("config.txt 파일에서 데이터를 가져오는 중 오류가 발생했습니다.")
@@ -80,14 +82,13 @@ with socket.socket(type=socket.SOCK_DGRAM) as client_socket:
                         questions=query_host
                     )
 
-                    dns_host, dns_port = dns_info["local_dns_server"]
+                    dns_host, dns_port = dns_info[local_dns_server_name]
                     client_socket.sendto(query.encode(), (host, dns_port))
-                    print("쿼리를 전송했습니다.")
 
                     rcv_data, server_addr = client_socket.recvfrom(2048)
                     rcv_data = json.loads(rcv_data.decode())
                     reply = Message(**rcv_data)
-                    print("reply를 받았습니다.")
+
                     if reply.answers:
                         for question_for, answer_record, answer_type in reply.answers:
                             print(f"{question_for} : {answer_record}")

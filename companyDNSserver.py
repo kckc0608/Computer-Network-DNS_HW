@@ -72,7 +72,7 @@ try:
     if domain_info_file_name[-1] == '>':
         domain_info_file_name = domain_info_file_name[:-1]
 
-    company_name = domain_info_file_name.split('.')[0]
+    company_name = domain_info_file_name.split('.')[0] + '.com DNS server'
 
     company_dns_server = CompanyDns(port, server_name=company_name, cache_file_name=domain_info_file_name)
     company_dns_server.start()
