@@ -17,10 +17,10 @@ class RootDnsServer(RecursiveDns):
 
     def process_query(self, recv_message, addr):
         super().process_query(recv_message, addr)
-
         cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)
         self.print_data("캐시 검색 결과")
         self.print_data((cached_for, cached_record, cached_type))
+
         if cached_for:
             if cached_for == recv_message.questions:
                 reply_message = Message(
@@ -51,6 +51,7 @@ class RootDnsServer(RecursiveDns):
                     while cached_type and cached_type != 'A':
                         cached_for, cached_record, cached_type = self.find_question_in_cache(cached_record)
 
+                    self.print_data("authority server에 요청을 보냅니다.")
                     if cached_record not in self.ip_to_port:
                         self.print_data(self.ip_to_port)
                         raise Exception(f"IP 주소 {cached_record} 에 대한 포트 정보가 없습니다.")
@@ -59,7 +60,7 @@ class RootDnsServer(RecursiveDns):
                     self.print_data(f"authority server({authority_port})에 요청을 보냅니다.")
                     self.dns_socket.sendto(query_message.encode(), (self.host, authority_port))
                 else:
-                    self.print_data("iterative 방식으로서 authority 를 응답합니다.")
+                    self.print_data("iterative 방식으로 authority 를 응답합니다.")
                     reply_message = Message(
                         message_id=recv_message.message_id,
                         query_flag=False,
@@ -74,11 +75,11 @@ class RootDnsServer(RecursiveDns):
                         cached_for, cached_record, cached_type = self.find_question_in_cache(cached_record)
                         reply_message.authority += ((cached_for, cached_record, cached_type),)
                     self.dns_socket.sendto(reply_message.encode(), addr)
+
         else:
             self.print_data(f"cache에 {recv_message.questions}이 없습니다.")
             self.print_data(f"캐시에 정보가 없으므로 recursive, iterative 모두 할 수 없습니다.")
 
-            "사실 TLD 정보는 캐시에 들어있기 때문에, 진작 보낼 수 있었어야 한다."
             reply_message = Message(
                 message_id=recv_message.message_id,
                 query_flag=False,
