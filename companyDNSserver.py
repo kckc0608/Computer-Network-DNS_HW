@@ -15,9 +15,11 @@ os.system("")
 class CompanyDns(Dns):
 
     def load_config(self, find=None, exclude=None):
+        # company dns server는 config.txt를 읽지 않는다.
         return
 
     def clear_cache(self):
+        # compnay dns server는 자신의 회사명.txt 파일 자체가 초기 캐시이므로, 초기화하지 않는다.
         return
 
     def process_query(self, recv_message, addr):
