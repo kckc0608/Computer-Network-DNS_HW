@@ -84,9 +84,6 @@ class Dns:
                         self.dns_info[server_name] = (host_info, port_info)
                         self.save_record_into_cache((host_info[0], host_info[1], 'A'))
 
-            self.print_data(self.dns_info)
-            self.print_data(self.ip_to_port)
-
     def load_cache(self):
         self.print_data("캐시를 로드합니다.")
         with open(self.cache_file_name, encoding="utf-8") as cache_file:
@@ -173,7 +170,7 @@ class Dns:
         with open(self.cache_file_name, 'a', encoding="utf-8") as cache_file:
             cache_file.write(record_data)
 
-    def print_data(self, _data):
+    def print_data(self, _data, print_type='info'):
         COLOR = {
             "HEADER": "\033[95m",
             "BLUE": "\033[94m",
@@ -182,7 +179,12 @@ class Dns:
             "ENDC": "\033[0m",
         }
         print(f"\u001B[999D\u001B[K", end="", flush=True)
-        print(COLOR["GREEN"], "[info] ", COLOR["ENDC"], end='', flush=True)
+        match print_type:
+            case 'error':
+                print(COLOR["RED"], "[error] ", COLOR["ENDC"], end='', flush=True)
+            case _:
+                print(COLOR["GREEN"], "[info] ", COLOR["ENDC"], end='', flush=True)
+
         print(f"{_data}\n", end='', flush=True)
         print(">> ", end='', flush=True)
 

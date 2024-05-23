@@ -117,6 +117,7 @@ class LocalDns(Dns):
             query = recv_message
             query.authority = tuple()
             query.query_flag = True
+            query.recursive_desired = True
             self.dns_socket.sendto(recv_message.encode(), (self.host, authority_port))
         else:
             self.print_data("호스트 이름에 대한 IP주소를 찾지 못했습니다.")
