@@ -2,3 +2,4 @@ machine49.xy.com , 100.101.102.103 , A
 www.xy.com , machine49.xy.com , CNAME
 api.xy.com , machine49.xy.com , CNAME
 ftp.xy.com , machine49.xy.com , CNAME
+dns.xy.com , 111.112.113.114 , A

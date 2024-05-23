@@ -1,0 +1,5 @@
+machine50.abcdef.com , 100.101.102.104 , A
+www.abcdef.com , machine50.abcdef.com , CNAME
+api.abcdef.com , machine50.abcdef.com , CNAME
+ftp.abcdef.com , machine50.abcdef.com , CNAME
+dns.abcdef.com , 77.88.99.11 , A

@@ -1,7 +1,13 @@
 dns.rootDNSservice.com , 99.99.99.99 , A
 com , dns.comTLDDNSsolution.com , NS
 dns.comTLDDNSsolution.com , 111.112.113.44 , A
-xy.com , dns.xy.com , NS
-dns.xy.com , 111.112.113.114 , A
-www.xy.com , machine49.xy.com , CNAME
+xyz.com , dns.xyz.com , NS
+dns.xyz.com , 100.100.100.99 , A
+www.xyz.com , machine51.xyz.com , CNAME
+machine51.xyz.com , 100.101.102.105 , A
+abcdef.com , dns.abcdef.com , NS
+dns.abcdef.com , 77.88.99.11 , A
+ftp.abcdef.com , machine50.abcdef.com , CNAME
+machine50.abcdef.com , 100.101.102.104 , A
+api.xy.com , machine49.xy.com , CNAME
 machine49.xy.com , 100.101.102.103 , A

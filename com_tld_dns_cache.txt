@@ -4,11 +4,11 @@ dns.comTLDDNSsolution.com , 111.112.113.44 , A
 dns.xy.com , 111.112.113.114 , A
 dns.abcdef.com , 77.88.99.11 , A
 dns.xyz.com , 100.100.100.99 , A
-dns.ahobho.com , 100.100.100.99 , A
 dreamnet.com , dns.dreamnet.com , NS
 rootDNSservice.com , dns.rootDNSservice.com , NS
 comTLDDNSsolution.com , dns.comTLDDNSsolution.com , NS
 xy.com , dns.xy.com , NS
 abcdef.com , dns.abcdef.com , NS
 xyz.com , dns.xyz.com , NS
-ahobho.com , dns.ahobho.com , NS
+api.xy.com , machine49.xy.com , CNAME
+machine49.xy.com , 100.101.102.103 , A

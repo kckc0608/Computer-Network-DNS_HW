@@ -1,0 +1,5 @@
+machine51.xyz.com , 100.101.102.105 , A
+www.xyz.com , machine51.xyz.com , CNAME
+api.xyz.com , machine51.xyz.com , CNAME
+ftp.xyz.com , machine51.xyz.com , CNAME
+dns.xyz.com , 100.100.100.99 , A
