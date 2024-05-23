@@ -165,6 +165,13 @@ class Dns:
         self.print_data("reply 를 받았습니다.")
         self.print_data(recv_message)
 
+        # Caching
+        for auth_for, auth_record, auth_type in recv_message.answers:
+            self.save_record_into_cache((auth_for, auth_record, auth_type))
+
+        for auth_for, auth_record, auth_type in recv_message.authority:
+            self.save_record_into_cache((auth_for, auth_record, auth_type))
+
     def save_record_into_cache(self, record):
         record_data = ' , '.join(record) + '\n'
         with open(self.cache_file_name, 'a', encoding="utf-8") as cache_file:

@@ -81,27 +81,23 @@ class LocalDns(Dns):
     def process_reply(self, recv_message: Message, addr):
         super().process_reply(recv_message, addr)
 
-        cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)
-        while cached_for and cached_type != 'A':
-            cached_for, cached_record, cached_type = self.find_question_in_cache(cached_record)
-
         if recv_message.answers:
             self.print_data("answers 가 들어있는 응답을 받았습니다.")
             self.print_data(f"client port : {self.msg_id_table[recv_message.message_id]}")
-            self.print_data(f"{recv_message}")
 
-            # Caching
-            for answer_for, answer_record, answer_record_type in recv_message.answers:
-                self.save_record_into_cache((answer_for, answer_record, answer_record_type))
+            # 만약에 CNAME 만 answer로 받았는데, 내가 기존에 갖고 있던 캐시에 해당 CNAME에 대한 A 레코드가 있었다면
+            # 그대는 로컬 DNS 서버가 직접 A 레코드까지 알아내서 보내줘야 하는가?
+
+            # cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)
+            # while cached_for and cached_type != 'A':
+            #     cached_for, cached_record, cached_type = self.find_question_in_cache(cached_record)
+
+            self.print_data(f"{recv_message}")
 
             self.dns_socket.sendto(recv_message.encode(), self.msg_id_table[recv_message.message_id])
         elif recv_message.authority:
             self.print_data("authority 가 들어있는 응답을 받았습니다.")
             self.print_data(recv_message.authority)
-
-            # Caching
-            for auth_for, auth_record, auth_type in recv_message.authority:
-                self.save_record_into_cache((auth_for, auth_record, auth_type))
 
             auth_for, auth_record, auth_type = self.find_question_in_cache(recv_message.questions)
             while auth_type != 'A':

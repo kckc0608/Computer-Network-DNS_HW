@@ -1,3 +1,7 @@
 dns.rootDNSservice.com , 99.99.99.99 , A
+com , dns.comTLDDNSsolution.com , NS
+dns.comTLDDNSsolution.com , 111.112.113.44 , A
+xy.com , dns.xy.com , NS
+dns.xy.com , 111.112.113.114 , A
 www.xy.com , machine49.xy.com , CNAME
 machine49.xy.com , 100.101.102.103 , A

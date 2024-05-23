@@ -29,21 +29,37 @@ class ComTLDDns(RecursiveDns):
     def process_query(self, recv_message: Message, addr):
         super().process_query(recv_message, addr)
         cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)
-        self.print_data("캐시 검색 결과")
-        self.print_data((cached_for, cached_record, cached_type))
 
         if cached_for:
             if cached_for == recv_message.questions:
+                self.print_data(f"{recv_message.questions}을 캐시에서 찾았습니다.")
                 reply_message = Message(
                     message_id=recv_message.message_id,
                     query_flag=False,
                     questions=recv_message.questions,
                     recursive_desired=False,
                     recursive_available=self.recursive_flag,
-                    answers=tuple(recv_message.answers) + ((cached_for, cached_record, cached_type),),
+                    answers=tuple(recv_message.answers),
                     authority=tuple(recv_message.authority),
                     path=tuple(recv_message.path)
                 )
+
+                question = reply_message.questions
+                while 'A' not in self.dns_cache[question]:
+                    if question not in self.dns_cache:
+                        self.print_data("A 레코드 정보를 찾지 못했습니다.")
+                        question = None
+                        break
+                    if 'CNAME' in self.dns_cache[question]:
+                        reply_message.answers += ((question, self.dns_cache[question]['CNAME'], 'CNAME'),)
+                        question = self.dns_cache[question]['CNAME']
+                    elif 'NS' in self.dns_cache[question]:
+                        reply_message.answers += ((question, self.dns_cache[question]['NS'], 'NS'),)
+                        question = self.dns_cache[question]['NS']
+
+                if question:
+                    reply_message.answers += ((question, self.dns_cache[question]['A'], 'A'),)
+
                 self.dns_socket.sendto(reply_message.encode(), addr)
             else:
                 if recv_message.recursive_desired and (self.recursive_flag or recv_message.recursive_available):
