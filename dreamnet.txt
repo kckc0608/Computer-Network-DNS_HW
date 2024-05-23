@@ -1,0 +1,6 @@
+swdpt0.dreamnet.com , 100.101.102.105 , A
+dreamnet.com , swdpt0.dreamnet.com , CNAME
+www.dreamnet.com , dreamnet.com , CNAME
+api.dreamnet.com , swdpt0.dreamnet.com , CNAME
+ftp.dreamnet.com , swdpt0.dreamnet.com , CNAME
+dns.dreamnet.com , 100.100.100.99 , A

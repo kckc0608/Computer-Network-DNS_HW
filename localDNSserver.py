@@ -32,6 +32,10 @@ class LocalDns(Dns):
         super().__init__(port, cache_file_name, server_name)
         self.root_dns_port = self.dns_info.get('root_dns_server')[1]
 
+        self.cache_file_name = 'dreamnet.txt'
+        self.load_cache()
+        self.cache_file_name = cache_file_name
+
     def load_config(self, find=None, exclude=None):
         return super().load_config(['root_dns_server'], exclude)
 
@@ -87,6 +91,14 @@ class LocalDns(Dns):
 
             # 만약에 CNAME 만 answer로 받았는데, 내가 기존에 갖고 있던 캐시에 해당 CNAME에 대한 A 레코드가 있었다면
             # 그대는 로컬 DNS 서버가 직접 A 레코드까지 알아내서 보내줘야 하는가?
+
+            # dreamnet.com 에 대한 쿼리를 받았는데, dreamnet.com (NS) 에 대한 정보만 있고, 네임서버 A 레코드를 받았다면, 이는 유효한 응답인가?
+            # dreamnet.com 에 접속하려는 클라이언트는 dns.dreamnet.com IP 주소를 받는 것이 옳은가, 네임서버에 질의한 결과를 받는 것이 옳은가
+            # 이건 네임서버의 A 레코드를 돌려줄 게 아니라, 네임서버에 다시 직접 질의해서 얻어오는 것이 맞는 과정 같다.
+
+            # dns.dreamnet.com 에 대한 쿼리를 받는다면, local dns server는 이에 대해 자신의 정보를 바로 응답해야 하는가?
+            # local dns server는 어떻게보면 다른 클라이언트 입장에서 dreamnet.com 에 대한 authoritative 서버다.
+            # 그렇다면 local dns server 는 그 자체로 dreamnet.txt 파일에 저장된 내용을 캐시로 갖고 있는 것이 맞을 것 같다.
 
             # cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)
             # while cached_for and cached_type != 'A':
