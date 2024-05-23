@@ -10,3 +10,5 @@ comTLDDNSsolution.com , dns.comTLDDNSsolution.com , NS
 xy.com , dns.xy.com , NS
 abcdef.com , dns.abcdef.com , NS
 xyz.com , dns.xyz.com , NS
+www.xy.com , machine49.xy.com , CNAME
+machine49.xy.com , 100.101.102.103 , A

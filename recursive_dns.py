@@ -14,13 +14,16 @@ class RecursiveDns(Dns):
             self.load_cache()
             for key, item in self.dns_cache.items():
                 for record_type, record_value in item.items():
-                    self.print_data(f"{key} : {record_value} ({record_type})")
+                    print(f"{key} : {record_value} ({record_type})")
 
         elif cmd[0] == "recursiveFlag":
-            if len(cmd) != 2:
-                self.print_data("명령어 형식이 잘못되었습니다.", print_type='error')
-            elif len(cmd) == 1:
-                self.print_data("명령어 형식이 잘못되었습니다. recursiveFlag [on|off]", print_type='error')
+            if len(cmd) == 1:
+                print("명령어 형식이 잘못되었습니다. recursiveFlag [on|off]")
+                return
+
+            elif len(cmd) != 2:
+                print("명령어 형식이 잘못되었습니다.")
+                return
 
             if cmd[1] == "on":
                 self.recursive_flag = True
@@ -29,10 +32,10 @@ class RecursiveDns(Dns):
                 self.recursive_flag = False
                 print("recursive processing : OFF")
             else:
-                self.print_data("명령어 형식이 잘못되었습니다. recursiveFlag [on|off]", print_type='error')
+                print("명령어 형식이 잘못되었습니다. recursiveFlag [on|off]")
 
         else:
-            self.print_data("존재하지 않는 명령어 입니다.", print_type='error')
+            print("존재하지 않는 명령어 입니다.")
 
     def process_reply(self, recv_message: Message, addr):
         super().process_reply(recv_message, addr)

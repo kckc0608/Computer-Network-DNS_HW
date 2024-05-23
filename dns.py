@@ -116,7 +116,7 @@ class Dns:
             self.load_cache()
             for key, item in self.dns_cache.items():
                 for record_type, record_value in item.items():
-                    self.print_data(f"{key} : {record_value} ({record_type})")
+                    print(f"{key} : {record_value} ({record_type})")
         else:
             print("존재하지 않는 명령어 입니다.")
 
@@ -191,6 +191,10 @@ class Dns:
             cache_file.write(record_data)
 
     def print_data(self, _data, print_type='info'):
+
+        # 과제 제출용은 디버깅 출력을 하지 않음
+        return
+
         COLOR = {
             "HEADER": "\033[95m",
             "BLUE": "\033[94m",
