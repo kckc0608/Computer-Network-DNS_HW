@@ -172,6 +172,19 @@ class Dns:
         for auth_for, auth_record, auth_type in recv_message.authority:
             self.save_record_into_cache((auth_for, auth_record, auth_type))
 
+    def send_empty_reply(self, recv_message: Message, addr):
+        reply_message = Message(
+            message_id=recv_message.message_id,
+            query_flag=False,
+            questions=recv_message.questions,
+            recursive_desired=recv_message.recursive_desired,
+            recursive_available=False,
+            answers=tuple(recv_message.answers),
+            authority=tuple(recv_message.authority),
+            path=tuple(recv_message.path)
+        )
+        self.dns_socket.sendto(reply_message.encode(), addr)
+
     def save_record_into_cache(self, record):
         record_data = ' , '.join(record) + '\n'
         with open(self.cache_file_name, 'a', encoding="utf-8") as cache_file:

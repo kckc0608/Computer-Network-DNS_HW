@@ -129,17 +129,7 @@ class LocalDns(Dns):
             self.dns_socket.sendto(recv_message.encode(), (self.host, authority_port))
         else:
             self.print_data("호스트 이름에 대한 IP주소를 찾지 못했습니다.")
-            reply_message = Message(
-                message_id=recv_message.message_id,
-                query_flag=False,
-                questions=recv_message.questions,
-                recursive_desired=False,
-                recursive_available=False,
-                answers=tuple(recv_message.answers),
-                authority=tuple(recv_message.authority),
-                path=tuple(recv_message.path)
-            )
-            self.dns_socket.sendto(reply_message.encode(), self.msg_id_table[recv_message.message_id])
+            self.send_empty_reply(recv_message, self.msg_id_table[recv_message.message_id])
 
 
 try:

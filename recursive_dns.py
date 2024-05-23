@@ -39,5 +39,15 @@ class RecursiveDns(Dns):
         self.dns_socket.sendto(recv_message.encode(), self.msg_id_table[recv_message.message_id])
         self.print_data(f"{self.msg_id_table[recv_message.message_id]}에 응답을 보냈습니다.")
 
-
-
+    def send_empty_reply(self, recv_message: Message, addr):
+        reply_message = Message(
+            message_id=recv_message.message_id,
+            query_flag=False,
+            questions=recv_message.questions,
+            recursive_desired=recv_message.recursive_desired,
+            recursive_available=self.recursive_flag,
+            answers=tuple(recv_message.answers),
+            authority=tuple(recv_message.authority),
+            path=tuple(recv_message.path)
+        )
+        self.dns_socket.sendto(reply_message.encode(), addr)

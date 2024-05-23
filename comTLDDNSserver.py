@@ -105,19 +105,7 @@ class ComTLDDns(RecursiveDns):
 
         else:
             self.print_data(f"cache에 {recv_message.questions}이 없습니다.")
-            self.print_data(f"캐시에 정보가 없으므로 recursive, iterative 모두 할 수 없습니다.")
-
-            reply_message = Message(
-                message_id=recv_message.message_id,
-                query_flag=False,
-                questions=recv_message.questions,
-                recursive_desired=False,
-                recursive_available=self.recursive_flag,
-                answers=tuple(recv_message.answers),
-                authority=tuple(recv_message.authority),
-                path=tuple(recv_message.path)
-            )
-            self.dns_socket.sendto(reply_message.encode(), addr)
+            self.send_empty_reply(recv_message, addr)
 
 
 if len(sys.argv) < 2:
