@@ -15,6 +15,17 @@ os.system("")
 
 class ComTLDDns(RecursiveDns):
 
+    """.com TLD DNS 서버 프로세스는 실행 후 config.txt 파일에 저장된 여러 .com 회사들
+    각각의 authoritative DNS 서버의 <네임, IP 주소> 및 port 번호(UDP 통신에 필요)를 읽어와
+    네임과 IP 주소의 쌍(들)을 RR 형태로 cache에 저장한다."""
+
+    def load_config(self, find=None, exclude=None):
+        super().load_config(find, exclude)
+        for host, _port in self.dns_info.values():
+            if host[0].split('.')[0] == 'dns':
+                domain_name = ".".join(host[0].split('.')[1:])
+                self.save_record_into_cache((domain_name, host[0], 'NS'))
+
     def process_query(self, recv_message: Message, addr):
         super().process_query(recv_message, addr)
         cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)

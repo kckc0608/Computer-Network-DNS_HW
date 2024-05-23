@@ -1,8 +1,8 @@
 local_dns_server = [dns.dreamnet.com, 100.100.100.99] 23002
-root_dns_server = [dns.root.com, 99.99.99.99] 23003
-comTLD_dns_server = [dns.tld.com, 111.112.113.44] 23004
+root_dns_server = [dns.rootDNSservice.com, 99.99.99.99] 23003
+comTLD_dns_server = [dns.comTLDDNSsolution.com, 111.112.113.44] 23004
 # 특정 회사들
 xy_dns_server = [dns.xy.com, 111.112.113.114] 10000
 abcdef_dns_server = [dns.abcdef.com, 77.88.99.11] 10001
-xyz_dns_server = [dns.dreamnet.com, 100.100.100.99] 10002
-ahobho_dns_server = [dns.dreamnet.com, 100.100.100.99] 10003
+xyz_dns_server = [dns.xyz.com, 100.100.100.99] 10002
+ahobho_dns_server = [dns.ahobho.com, 100.100.100.99] 10003

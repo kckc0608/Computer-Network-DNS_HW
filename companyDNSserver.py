@@ -14,6 +14,12 @@ os.system("")
 
 class CompanyDns(Dns):
 
+    def load_config(self, find=None, exclude=None):
+        return
+
+    def clear_cache(self):
+        return
+
     def process_query(self, recv_message, addr):
         super().process_query(recv_message, addr)
         reply = Message(

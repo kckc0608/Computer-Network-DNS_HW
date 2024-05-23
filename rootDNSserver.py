@@ -15,6 +15,10 @@ os.system("")
 
 class RootDnsServer(RecursiveDns):
 
+    def load_config(self, find=None, exclude=None):
+        self.save_record_into_cache(('com', 'dns.comTLDDNSsolution.com', 'NS'))
+        return super().load_config(['comTLD_dns_server'], exclude)
+
     def process_query(self, recv_message, addr):
         super().process_query(recv_message, addr)
         cached_for, cached_record, cached_type = self.find_question_in_cache(recv_message.questions)

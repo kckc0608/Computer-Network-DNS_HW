@@ -32,6 +32,9 @@ class LocalDns(Dns):
         super().__init__(port, cache_file_name, server_name)
         self.root_dns_port = self.dns_info.get('root_dns_server')[1]
 
+    def load_config(self, find=None, exclude=None):
+        return super().load_config(['root_dns_server'], exclude)
+
     def process_query(self, recv_message: Message, addr):
         super().process_query(recv_message, addr)
 
@@ -112,6 +115,7 @@ class LocalDns(Dns):
 
             authority_port = self.ip_to_port[auth_record]
             query = recv_message
+            query.authority = tuple()
             query.query_flag = True
             self.dns_socket.sendto(recv_message.encode(), (self.host, authority_port))
         else:

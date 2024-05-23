@@ -22,6 +22,7 @@ class Dns:
         self.msg_id_table = dict()
         self.dns_socket: socket.socket
 
+        self.clear_cache()
         self.load_config()
         self.load_cache()
 
@@ -47,7 +48,7 @@ class Dns:
             print(ex)
             input("계속하려면 아무 키나 누르십시오...")
 
-    def load_config(self):
+    def load_config(self, find=None, exclude=None):
         with open('config.txt', encoding="utf-8") as f:
             raw_data = f.read()
             for line in raw_data.split('\n'):
@@ -67,8 +68,21 @@ class Dns:
                 host_info = tuple(map(lambda x: x.strip(), host_info[0][1:-1].split(',')))
                 port_info = int(port_info[0][2:])
 
-                self.dns_info[server_name.strip()] = (host_info, port_info)
                 self.ip_to_port[host_info[1]] = port_info
+
+                if exclude and server_name.strip() in exclude:
+                    continue
+
+                server_name = server_name.strip()
+                if find:
+                    if server_name in find:
+                        if server_name not in self.dns_info:
+                            self.dns_info[server_name] = (host_info, port_info)
+                            self.save_record_into_cache((host_info[0], host_info[1], 'A'))
+                else:
+                    if server_name not in self.dns_info:
+                        self.dns_info[server_name] = (host_info, port_info)
+                        self.save_record_into_cache((host_info[0], host_info[1], 'A'))
 
             self.print_data(self.dns_info)
             self.print_data(self.ip_to_port)
@@ -171,3 +185,6 @@ class Dns:
         print(COLOR["GREEN"], "[info] ", COLOR["ENDC"], end='', flush=True)
         print(f"{_data}\n", end='', flush=True)
         print(">> ", end='', flush=True)
+
+    def clear_cache(self):
+        open(self.cache_file_name, 'w')

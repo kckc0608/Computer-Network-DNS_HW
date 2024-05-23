@@ -1,2 +1,2 @@
 com , dns.comTLDDNSsolution.com , NS
-dns.comTLDDNSsolution.com ,  111.112.113.44 , A
+dns.comTLDDNSsolution.com , 111.112.113.44 , A
